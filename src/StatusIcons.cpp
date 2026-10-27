@@ -41,7 +41,7 @@ namespace StatusIcons
 		IconRules::Timer g_timer;
 		using Clock = std::chrono::steady_clock;
 		std::uint32_t g_lastPx = 0;
-		double g_sizeFraction = 0.5;
+		double g_sizeFraction = 0.7;
 		std::string_view g_openMenu;
 
 		void RunPrewarm(std::uint32_t a_px, std::size_t a_next, std::uint32_t a_added, std::uint64_t a_workNs)

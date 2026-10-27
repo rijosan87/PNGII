@@ -51,7 +51,7 @@ namespace
 				"; Effect icons per ingredient, 1 to 4." },
 			{ "StatusIcons", "sHarmfulEffectColor", "CC3333",
 				"; Tint for harmful effect icons, hex RRGGBB. FFFFFF = no tint." },
-			{ "StatusIcons", "fStatusIconSize", "0.5",
+			{ "StatusIcons", "fStatusIconSize", "0.7",
 				"; Status icon height as a fraction of the row height, 0.3 to 0.9. 0.5 = DIII size, 0.7 = about 24 px at 1080p." },
 			{ "TrueHUD", "bRecentLootIcons", "1",
 				"; 1 = show rule icons on TrueHUD Recent Loot cards, 0 = keep TrueHUD's icons." },
@@ -152,8 +152,8 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	}
 	const std::uint32_t harmTint = harmColor == 0xFFFFFF ? 0 : harmColor;
 	IconRules::SetIngredientIcons(showProgress, showEffects ? maxEffectIcons : 0, harmTint);
-	REX::W32::GetPrivateProfileStringA("StatusIcons", "fStatusIconSize", "0.5", buf, sizeof(buf), kIni);
-	double statusSize = 0.5;
+	REX::W32::GetPrivateProfileStringA("StatusIcons", "fStatusIconSize", "0.7", buf, sizeof(buf), kIni);
+	double statusSize = 0.7;
 	std::from_chars(buf, buf + std::string_view(buf).size(), statusSize);
 	StatusIcons::SetSize(statusSize);
 	REX::W32::GetPrivateProfileStringA("TrueHUD", "bRecentLootIcons", "1", buf, sizeof(buf), kIni);
