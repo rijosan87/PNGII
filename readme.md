@@ -27,6 +27,10 @@ Restart Skyrim after editing rules; there is no hot reload.
 }
 ```
 
+## Plugin integration
+
+Other SKSE plugins can query the selected icon through the [plugin icon API](docs/plugin-api.md).
+
 ## Build
 
 Requirements:

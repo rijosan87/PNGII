@@ -55,6 +55,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
         src/plugin.cpp
         src/CategoryIcons.cpp
         src/LootIcons.cpp
+        src/IconAPI.cpp
         src/IconRules.cpp
         src/NewItems.cpp
         src/RowIcons.cpp
