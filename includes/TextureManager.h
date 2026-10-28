@@ -3,6 +3,7 @@
 // Turns a PNG path (relative to Data) into an img:// URL Scaleform can draw. Every PNG goes through here.
 // Back ends, in order: pre-scaled (DirectXTex decode, CPU mip chain, the level nearest above the drawn size uploaded
 // as a D3D texture) and LoadPNG as a last resort. A path that fails both is cached as a miss.
+// SVG is rasterized with lunasvg, then takes the pre-scaled route.
 namespace TextureManager
 {
 	// Cached existence check for a path relative to Data. Does not validate PNG decoding.
@@ -18,8 +19,15 @@ namespace TextureManager
 		std::uint32_t loadPNG;
 		std::uint32_t missed;
 		std::size_t   vramBytes;
+		std::uint32_t svgDecoded;
+		std::uint64_t svgDecodeNs;
+		std::uint32_t pngDecoded;
+		std::uint64_t pngDecodeNs;
 	};
 	Stats GetStats();
+
+	// INI [Icons] bSharpSVG: true = 2x raster then mip pick, false = exact size. Set before the first GetURL.
+	void SetSharpSVG(bool a_sharp);
 
 	// Stage units to screen pixels. Item menu stages are 720 units tall, scaled to the screen
 	// height (1.5 at 1080p). Shared by RowIcons and StatusIcons.

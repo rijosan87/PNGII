@@ -6,6 +6,7 @@
     "directxmath",
     "directxtex",
     "directxtk",
+    "lunasvg",
     "nlohmann-json",
     "rapidcsv",
     "simpleini",

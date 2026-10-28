@@ -2,6 +2,8 @@
 
 #include <DirectXTex.h>
 #include <d3d11.h>
+#include <bit>
+#include <lunasvg.h>
 
 namespace TextureManager
 {
@@ -22,6 +24,7 @@ namespace TextureManager
 		std::unordered_map<std::string, bool>  g_exists;
 		std::unordered_map<std::string, std::pair<std::uint32_t, std::uint32_t>> g_sourceSizes;
 		Stats                                   g_stats{};
+		bool                                    g_sharpSVG = true;
 
 		std::size_t PickLevel(std::size_t a_width, std::size_t a_height, std::uint32_t a_targetPx)
 		{
@@ -103,12 +106,51 @@ namespace TextureManager
 			return SUCCEEDED(hr);
 		}
 
+		bool IsSVG(const std::string& a_path)
+		{
+			return a_path.size() >= 4 && _stricmp(a_path.c_str() + a_path.size() - 4, ".svg") == 0;
+		}
+
+		// Raster at 2x the drawn size, then the mip pick downscales it. 0 = the SVG's own size.
+		bool RasterizeSVG(const std::vector<std::uint8_t>& a_bytes, std::uint32_t a_targetPx, DirectX::ScratchImage& a_out)
+		{
+			const auto doc = lunasvg::Document::loadFromData(reinterpret_cast<const char*>(a_bytes.data()), a_bytes.size());
+			if (!doc || doc->width() <= 0.0f || doc->height() <= 0.0f) {
+				return false;
+			}
+			// Square canvas, art centered: row icon clips are square.
+			const float docW = doc->width();
+			const float docH = doc->height();
+			const int   side = a_targetPx > 0 ? static_cast<int>(g_sharpSVG ? std::bit_ceil(a_targetPx * 2) : a_targetPx) :
+			                                    static_cast<int>(std::ceil((std::max)(docW, docH)));
+			const int   w = side;
+			const int   h = side;
+			const float scale = static_cast<float>(side) / (std::max)(docW, docH);
+			lunasvg::Bitmap bitmap(w, h);
+			if (bitmap.isNull()) {
+				return false;
+			}
+			bitmap.clear(0x00000000);
+			doc->render(bitmap, lunasvg::Matrix(scale, 0, 0, scale, (side - docW * scale) / 2, (side - docH * scale) / 2));
+			// Straight RGBA; the PNG path premultiplies.
+			bitmap.convertToRGBA();
+			if (FAILED(a_out.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, w, h, 1, 1))) {
+				return false;
+			}
+			const auto* img = a_out.GetImage(0, 0, 0);
+			for (int y = 0; y < h; ++y) {
+				std::memcpy(img->pixels + y * img->rowPitch, bitmap.data() + y * bitmap.stride(), static_cast<std::size_t>(w) * 4);
+			}
+			return true;
+		}
+
 		const std::string* TryScaled(const std::string& a_path, std::uint32_t a_targetPx)
 		{
 			std::vector<std::uint8_t> bytes;
 			if (!ReadGameFile(a_path, bytes)) {
 				return nullptr;
 			}
+			const bool svg = IsSVG(a_path);
 
 			auto* templ = GetTemplate();
 			auto* device = reinterpret_cast<ID3D11Device*>(RE::BSGraphics::Renderer::GetDevice());
@@ -119,9 +161,19 @@ namespace TextureManager
 			}
 
 			DirectX::ScratchImage image;
-			if (!DecodeImage(bytes, image)) {
-				logger::warn("DirectXTex could not decode {}", a_path);
+			const auto decodeStart = std::chrono::steady_clock::now();
+			if (svg ? !RasterizeSVG(bytes, a_targetPx, image) : !DecodeImage(bytes, image)) {
+				logger::warn("{} could not decode {}", svg ? "lunasvg" : "DirectXTex", a_path);
 				return nullptr;
+			}
+			const auto decodeNs = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+				std::chrono::steady_clock::now() - decodeStart).count());
+			if (svg) {
+				g_stats.svgDecoded++;
+				g_stats.svgDecodeNs += decodeNs;
+			} else {
+				g_stats.pngDecoded++;
+				g_stats.pngDecodeNs += decodeNs;
 			}
 
 			DirectX::ScratchImage converted;
@@ -147,6 +199,10 @@ namespace TextureManager
 			const auto level = PickLevel(srcMd.width, srcMd.height, a_targetPx);
 			// Uploaded premultiplied because Scaleform blends it that way; a straight upload drew a bright rim on grey icons.
 			const auto* chosen = mips.GetImage(level, 0, 0);
+			// Reuse an existing SVG level instead of registering it twice.
+			if (const auto owner = g_entries.find(LevelKey(a_path, chosen->width)); svg && owner != g_entries.end()) {
+				return &owner->second.url;
+			}
 			auto        md = mips.GetMetadata();
 			md.width = chosen->width;
 			md.height = chosen->height;
@@ -194,8 +250,8 @@ namespace TextureManager
 			g_stats.scaled++;
 			g_sourceSizes[a_path] = { static_cast<std::uint32_t>(srcMd.width), static_cast<std::uint32_t>(srcMd.height) };
 			g_stats.vramBytes += ImageBytes(md);
-			logger::debug("scaled {} ({}x{} source, target {} px) -> {}x{} -> {}", a_path,
-				srcMd.width, srcMd.height, a_targetPx, md.width, md.height, url);
+			logger::debug("scaled {} ({}x{} source, target {} px, decode {} us) -> {}x{} -> {}", a_path,
+				srcMd.width, srcMd.height, a_targetPx, decodeNs / 1000, md.width, md.height, url);
 
 			const auto [it, _] = g_entries.emplace(LevelKey(a_path, md.width), Entry{ std::move(url), std::move(external) });
 			return &it->second.url;
@@ -246,7 +302,9 @@ namespace TextureManager
 			return nullptr;
 		}
 		// A size that picks an already-registered level reuses it; the name would register twice.
-		if (const auto size = g_sourceSizes.find(a_path); size != g_sourceSizes.end()) {
+		// Not for exact-size SVGs: a larger target would reuse a smaller raster.
+		const bool exactSVG = !g_sharpSVG && IsSVG(a_path);
+		if (const auto size = g_sourceSizes.find(a_path); !exactSVG && size != g_sourceSizes.end()) {
 			const auto [w, h] = size->second;
 			const auto levelWidth = (std::max<std::size_t>)(1, w >> PickLevel(w, h, a_targetPx));
 			if (const auto owner = g_entries.find(LevelKey(a_path, levelWidth)); owner != g_entries.end()) {
@@ -259,7 +317,8 @@ namespace TextureManager
 			const auto [it, _] = g_entries.emplace(key, Entry{ *url, nullptr });
 			return &it->second.url;
 		}
-		if (const auto* url = TryLoadPNG(a_path)) {
+		// LoadPNG cannot read SVG.
+		if (const auto* url = IsSVG(a_path) ? nullptr : TryLoadPNG(a_path)) {
 			const auto [it, _] = g_entries.emplace(key, Entry{ *url, nullptr });
 			return &it->second.url;
 		}
@@ -267,6 +326,11 @@ namespace TextureManager
 		g_misses.insert(a_path);
 		g_stats.missed++;
 		return nullptr;
+	}
+
+	void SetSharpSVG(bool a_sharp)
+	{
+		g_sharpSVG = a_sharp;
 	}
 
 	Stats GetStats()
