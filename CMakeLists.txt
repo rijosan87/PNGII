@@ -1,7 +1,7 @@
 # PNG Icon Injector - CMake Build Configuration
 cmake_minimum_required(VERSION 3.21)
 
-project(PNGIconInjector VERSION 0.1.0.0 LANGUAGES CXX)
+project(PNGIconInjector VERSION 0.1.0.1 LANGUAGES CXX)
 
 # Output folder configuration
 if(DEFINED ENV{SKYRIM_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_FOLDER}/Data")
@@ -46,6 +46,8 @@ include("${CLIB_SOURCE_DIR}/cmake/CommonLibSSE.cmake")
 find_package(nlohmann_json CONFIG REQUIRED)
 # TextureManager: PNG decode + mip chain (same package Party Sheet uses)
 find_package(directxtex CONFIG REQUIRED)
+# TextureManager: SVG icons rasterized at 2x the drawn size, then the PNG mip route
+find_package(lunasvg CONFIG REQUIRED)
 
 add_commonlibsse_plugin(${PROJECT_NAME}
     MINIMUM_SKSE_VERSION 2.0.17
@@ -75,6 +77,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
         nlohmann_json::nlohmann_json
         Microsoft::DirectXTex
+        lunasvg::lunasvg
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING)

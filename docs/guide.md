@@ -9,6 +9,9 @@ PNG icons:    Data/Interface/PNGIconInjector/MyIcons/sword.png
 
 - If you are adding new rules and icons, I suggest you keep them in a separate mod folder, named after your own mod.
 - PNGs can be loose files or packed in a BSA that is loaded by an ESP/ESL.
+- SVG files work anywhere a PNG does: point `icon` or `statusIcon` at a `.svg` path. SVGs are drawn on a square canvas,
+  so non-square art is fitted and centered. `bSharpSVG=1` (default, `[Icons]` in `PNGIconInjector.ini`) draws them as crisp
+  as a PNG; `0` rasterizes at the exact size, which looks softer.
 
 ## PNG size
 
@@ -36,8 +39,8 @@ At 4K the drawn size will be roughly double and it happens automatically, so you
 | `"version": 1` | Required, always keep at 1. Otherwise file is skipped |
 | `rules` | Your list of match rules, between square `[` and `]` |
 | `match` | Item and icon mapping. See [Matching keys and values](matching.md) |
-| `icon` | PNG image on the left side of any item, place them relative to `Interface/PNGIconInjector/` |
-| `statusIcon` | PNG image used instead of `icon` for a status icon right side of item name. See [Status icons](status-icons.md) |
+| `icon` | PNG or SVG image on the left side of any item, place them relative to `Interface/PNGIconInjector/` |
+| `statusIcon` | PNG or SVG image used instead of `icon` for a status icon right side of item name. See [Status icons](status-icons.md) |
 
 A file with three rules:
 

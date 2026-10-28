@@ -72,12 +72,16 @@ namespace RowIcons
 			std::uint32_t added = 0;
 			std::uint32_t tasks = 0;
 			std::uint64_t workNs = 0;
+			TextureManager::Stats first{};
 		};
 
 		void RunPrewarm(std::shared_ptr<Prewarm> a_state)
 		{
 			SKSE::GetTaskInterface()->AddUITask([a_state]() {
 				const auto start = Clock::now();
+				if (a_state->tasks == 0) {
+					a_state->first = TextureManager::GetStats();
+				}
 				++a_state->tasks;
 				while (a_state->next < a_state->paths.size() && Clock::now() - start < kPrewarmBudget) {
 					const auto before = TextureManager::GetStats();
@@ -93,6 +97,13 @@ namespace RowIcons
 				logger::info("prewarm{}: {} icons at {} px, {} new, {:.1f} ms work over {} tasks",
 					a_state->favoritesPass ? " Favorites" : "", a_state->paths.size(), a_state->px,
 					a_state->added, a_state->workNs / 1e6, a_state->tasks);
+				const auto end = TextureManager::GetStats();
+				const auto svgN = end.svgDecoded - a_state->first.svgDecoded;
+				const auto pngN = end.pngDecoded - a_state->first.pngDecoded;
+				const auto svgMs = (end.svgDecodeNs - a_state->first.svgDecodeNs) / 1e6;
+				const auto pngMs = (end.pngDecodeNs - a_state->first.pngDecodeNs) / 1e6;
+				logger::info("prewarm decode: {} SVG {:.1f} ms (avg {:.2f}), {} PNG {:.1f} ms (avg {:.2f})",
+					svgN, svgMs, svgN ? svgMs / svgN : 0.0, pngN, pngMs, pngN ? pngMs / pngN : 0.0);
 				if (a_state->favoritesPx) {
 					a_state->px = std::exchange(a_state->favoritesPx, 0);
 					a_state->favoritesPass = true;

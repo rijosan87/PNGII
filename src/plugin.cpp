@@ -5,6 +5,7 @@
 #include "NewItems.h"
 #include "StatusIcons.h"
 #include "TCCItemStatus.h"
+#include "TextureManager.h"
 #include <REX/W32/KERNEL32.h>
 #include <SimpleIni.h>
 
@@ -53,6 +54,8 @@ namespace
 				"; Tint for harmful effect icons, hex RRGGBB. FFFFFF = no tint." },
 			{ "StatusIcons", "fStatusIconSize", "0.7",
 				"; Status icon height as a fraction of the row height, 0.3 to 0.9. 0.5 = DIII size, 0.7 = about 24 px at 1080p." },
+			{ "Icons", "bSharpSVG", "1",
+				"; 1 = SVG icons drawn crisp like PNGs (2x raster, then downscaled), 0 = rasterized at the exact size, softer." },
 			{ "TrueHUD", "bRecentLootIcons", "1",
 				"; 1 = show rule icons on TrueHUD Recent Loot cards, 0 = keep TrueHUD's icons." },
 		};
@@ -156,13 +159,16 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	double statusSize = 0.7;
 	std::from_chars(buf, buf + std::string_view(buf).size(), statusSize);
 	StatusIcons::SetSize(statusSize);
+	REX::W32::GetPrivateProfileStringA("Icons", "bSharpSVG", "1", buf, sizeof(buf), kIni);
+	const bool sharpSVG = std::string_view(buf) != "0";
+	TextureManager::SetSharpSVG(sharpSVG);
 	REX::W32::GetPrivateProfileStringA("TrueHUD", "bRecentLootIcons", "1", buf, sizeof(buf), kIni);
 	const bool lootIcons = std::string_view(buf) != "0";
 	LootIcons::SetEnabled(lootIcons);
 	RowIcons::SetTiming(logTiming);
 	StatusIcons::SetTiming(logTiming);
-	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={}", logMatches, logTiming,
-		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons);
+	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} sharpSVG={}", logMatches, logTiming,
+		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, sharpSVG);
 	// NG initializes its own logger inside Init unless told not to; it would replace ours.
 	SKSE::Init(a_skse, { .log = false });
 	// SKSE only accepts the co-save unique ID during plugin load.

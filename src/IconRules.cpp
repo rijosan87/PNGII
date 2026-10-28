@@ -546,7 +546,7 @@ namespace IconRules
 		{
 			std::ranges::replace(a_icon, '\\', '/');
 			return !a_icon.empty() && !a_icon.starts_with('/') && a_icon.find(':') == std::string::npos &&
-			       a_icon.find("..") == std::string::npos && Lower(a_icon).ends_with(".png");
+			       a_icon.find("..") == std::string::npos && (Lower(a_icon).ends_with(".png") || Lower(a_icon).ends_with(".svg"));
 		}
 
 		void LoadRule(const nlohmann::json& a_rule, const std::string& a_origin, Counts& a_counts)
