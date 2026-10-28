@@ -1,6 +1,7 @@
 #include "CategoryIcons.h"
 #include "LootIcons.h"
 #include "RowIcons.h"
+#include "IconAPI.h"
 #include "IconRules.h"
 #include "NewItems.h"
 #include "StatusIcons.h"
@@ -104,11 +105,15 @@ namespace
 			LootIcons::Install();
 			StatusIcons::Install();
 			NewItems::Install();
+		} else if (a_msg->type == SKSE::MessagingInterface::kPreLoadGame) {
+			IconAPI::SetResolver(nullptr);
 		} else if (a_msg->type == SKSE::MessagingInterface::kPostLoadGame ||
 		           a_msg->type == SKSE::MessagingInterface::kNewGame) {
+			IconAPI::SetResolver(nullptr);
 			IconRules::ClearCache();
 			// After every kDataLoaded distributor so KID/SkyPatcher keywords exist; keeps the one-time cost off the first inventory frame.
 			IconRules::PrepareKeywords();
+			IconAPI::SetResolver(IconRules::Find);
 			RowIcons::PrewarmIcons();
 			StatusIcons::PrewarmIcons();
 		}
