@@ -3,7 +3,7 @@
 ## Description
 PNG Icon Injector replaces item and spell icons in the vanilla and SkyUI menus with PNG files
 chosen by JSON rules. SVG files work too. No SWF editing. It works in the Inventory, Container, Barter, Gift, Magic,
-Favorites and Crafting menus.
+Favorites and Crafting menus, TrueHUD Recent Loot and QuickLoot IE.
 
 ## Quick start
 
@@ -29,7 +29,7 @@ Restart Skyrim after editing rules; there is no hot reload.
 
 ## Plugin integration
 
-Other SKSE plugins can query the selected icon through the [plugin icon API](docs/plugin-api.md).
+Flash widgets and other SKSE plugins can query the selected icon. See [`docs/`](docs/README.md).
 
 ## Build
 

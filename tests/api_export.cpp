@@ -23,7 +23,7 @@ int main(int argc, char** argv) try
 	const auto module = LoadLibraryA(argv[1]);
 	Check(module != nullptr, "Load fixture DLL");
 	const auto request = reinterpret_cast<PNGII::API::RequestAPIFunction>(GetProcAddress(module, PNGII::API::kExportName));
-	Check(request && !request(0) && !request(2), "Undecorated export and version negotiation");
+	Check(request && !request(0) && !request(3), "Undecorated export and version negotiation");
 	const auto* api = static_cast<const PNGII::API::InterfaceV1*>(request(PNGII::API::kVersion1));
 	Check(api && api->version == 1 && api->structSize == sizeof(*api) && api->resolveIcon, "Interface layout across DLL boundary");
 	std::uint32_t required = 0;
@@ -36,6 +36,16 @@ int main(int argc, char** argv) try
 	Check(api->resolveIcon(0x1234, "weapon_sword", -1, path.data(), path.size(), &required) == Result::kSuccess,
 		"Copy to caller's allocation across DLL boundary");
 	Check(std::string(path.data()) == "Interface/PNGIconInjector/test/exported.png", "Returned PNG path");
+	const auto* v2 = static_cast<const PNGII::API::InterfaceV2*>(request(PNGII::API::kVersion2));
+	Check(v2 && v2->version == 2 && v2->structSize == sizeof(*v2) && v2->resolveIcon && v2->getIconLabel,
+		"Version 2 layout across DLL boundary");
+	std::vector<char> derived(64);
+	Check(v2->resolveIcon(0x1234, nullptr, -1, derived.data(), derived.size(), &required) == Result::kSuccess &&
+		std::string(derived.data()) == "Interface/PNGIconInjector/test/exported.png", "V2 derives the label");
+	Check(api->resolveIcon(0x1234, nullptr, -1, derived.data(), derived.size(), &required) == Result::kNoMatch,
+		"V1 never derives the label");
+	Check(v2->getIconLabel(0x1234, -1, derived.data(), derived.size(), &required) == Result::kSuccess &&
+		std::string(derived.data()) == "weapon_sword", "V2 label copy");
 	FreeLibrary(module);
 	Check(std::string(path.data()) == "Interface/PNGIconInjector/test/exported.png", "Copied path survives provider unload");
 	std::cout << "PASS: Windows DLL discovery, version negotiation and caller-owned path\n";

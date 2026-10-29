@@ -1,7 +1,10 @@
+#include "ASBridge.h"
 #include "CategoryIcons.h"
 #include "LootIcons.h"
+#include "QuickLootIcons.h"
 #include "RowIcons.h"
 #include "IconAPI.h"
+#include "IconLabels.h"
 #include "IconRules.h"
 #include "NewItems.h"
 #include "StatusIcons.h"
@@ -59,6 +62,8 @@ namespace
 				"; 1 = SVG icons drawn crisp like PNGs (2x raster, then downscaled), 0 = rasterized at the exact size, softer." },
 			{ "TrueHUD", "bRecentLootIcons", "1",
 				"; 1 = show rule icons on TrueHUD Recent Loot cards, 0 = keep TrueHUD's icons." },
+			{ "QuickLoot", "bLootMenuIcons", "1",
+				"; 1 = show rule icons in QuickLoot's loot window, 0 = keep QuickLoot's icons." },
 		};
 
 		CSimpleIniA ini;
@@ -100,9 +105,13 @@ namespace
 		if (a_msg->type == SKSE::MessagingInterface::kDataLoaded) {
 			TCCItemStatus::Init();
 			IconRules::Load();
+			// Label reads run behind the resolver gate, so KID keywords are in place by then.
+			IconLabels::Init();
+			IconAPI::SetLabeler(IconLabels::ForFormID);
 			RowIcons::Install();
 			CategoryIcons::Install();
 			LootIcons::Install();
+			QuickLootIcons::Install();
 			StatusIcons::Install();
 			NewItems::Install();
 		} else if (a_msg->type == SKSE::MessagingInterface::kPreLoadGame) {
@@ -170,14 +179,19 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	REX::W32::GetPrivateProfileStringA("TrueHUD", "bRecentLootIcons", "1", buf, sizeof(buf), kIni);
 	const bool lootIcons = std::string_view(buf) != "0";
 	LootIcons::SetEnabled(lootIcons);
+	REX::W32::GetPrivateProfileStringA("QuickLoot", "bLootMenuIcons", "1", buf, sizeof(buf), kIni);
+	const bool quickLootIcons = std::string_view(buf) != "0";
+	QuickLootIcons::SetEnabled(quickLootIcons);
 	RowIcons::SetTiming(logTiming);
 	StatusIcons::SetTiming(logTiming);
-	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} sharpSVG={}", logMatches, logTiming,
-		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, sharpSVG);
+	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} sharpSVG={}", logMatches, logTiming,
+		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, sharpSVG);
 	// NG initializes its own logger inside Init unless told not to; it would replace ours.
 	SKSE::Init(a_skse, { .log = false });
 	// SKSE only accepts the co-save unique ID during plugin load.
 	NewItems::RegisterSerialization();
+	// SKSE builds skse.plugins per movie at creation; register before the main menu movie.
+	ASBridge::Register();
 
 	logger::info("PNG Icon Injector v0.1.0, runtime {}", a_skse->RuntimeVersion().string());
 

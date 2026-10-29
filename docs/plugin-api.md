@@ -2,6 +2,8 @@
 
 Other SKSE plugins can query the PNG selected by PNG Icon Injector's item and spell rules. Queries use a runtime FormID, a SkyUI or I4 icon label, and an optional soul-gem status. The returned path is relative to `Data`, for example `Interface/PNGIconInjector/MyIcons/sword.png`.
 
+Version 2 (labels worked out from the FormID, `getIconLabel`) and the ActionScript API: see [API](api.md).
+
 ## Discover the interface
 
 Include [`PNGII_API.h`](../includes/PNGII_API.h) in the calling plugin. It requires C++17 and the standard library headers supplied by the compiler.
