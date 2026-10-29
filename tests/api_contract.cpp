@@ -27,6 +27,14 @@ namespace
 		}
 	}
 
+	std::uint32_t labelCalls = 0;
+
+	const char* Label(std::uint32_t a_form, std::int32_t)
+	{
+		++labelCalls;
+		return a_form == 1 ? "weapon_sword" : nullptr;
+	}
+
 	const std::string* Find(std::uint32_t a_form, std::string_view a_label, std::int32_t a_status)
 	{
 		++calls;
@@ -43,11 +51,17 @@ namespace
 int main() try
 {
 	static_assert(std::is_standard_layout_v<PNGII::API::InterfaceV1>);
+	static_assert(std::is_standard_layout_v<PNGII::API::InterfaceV2>);
 	static_assert(sizeof(Result) == sizeof(std::uint32_t));
-	Check(!PNGII_RequestAPI(0) && !PNGII_RequestAPI(2), "Unsupported versions must return nullptr");
+	Check(!PNGII_RequestAPI(0) && !PNGII_RequestAPI(3), "Unsupported versions must return nullptr");
 	const auto* api = static_cast<const PNGII::API::InterfaceV1*>(PNGII_RequestAPI(PNGII::API::kVersion1));
 	Check(api && api->version == 1 && api->structSize == sizeof(*api) && api->resolveIcon, "Version 1 interface");
 	Check(api == PNGII_RequestAPI(1), "Interface address must remain stable");
+	const auto* v2 = static_cast<const PNGII::API::InterfaceV2*>(PNGII_RequestAPI(PNGII::API::kVersion2));
+	Check(v2 && v2->version == 2 && v2->structSize == sizeof(*v2) && v2->resolveIcon && v2->getIconLabel,
+		"Version 2 interface");
+	Check(v2 == PNGII_RequestAPI(2), "Version 2 address must remain stable");
+	IconAPI::SetLabeler(Label);
 
 	std::array<char, 256> output{};
 	std::uint32_t required = 99;
@@ -119,7 +133,35 @@ int main() try
 		required == 0 && output[0] == '\0', "Matcher exceptions are contained at the DLL boundary");
 	fail = false;
 
+	// V1 is frozen and never derives; V2 derives only when the caller has no label.
+	path = "Interface/PNGIconInjector/test/v2.png";
+	labelCalls = 0;
+	Check(api->resolveIcon(1, nullptr, -1, output.data(), output.size(), &required) == Result::kSuccess &&
+		lastLabel.empty() && labelCalls == 0, "V1 form-only stays label-less with a labeler set");
+	Check(v2->resolveIcon(1, nullptr, -1, output.data(), output.size(), &required) == Result::kSuccess &&
+		lastLabel == "weapon_sword", "V2 form-only matches with the derived label");
+	Check(v2->resolveIcon(1, "", -1, output.data(), output.size(), &required) == Result::kSuccess &&
+		lastLabel == "weapon_sword", "V2 empty label is derived");
+	Check(v2->resolveIcon(1, "custom_label", -1, output.data(), output.size(), &required) == Result::kSuccess &&
+		lastLabel == "custom_label", "V2 caller label is used as is");
+	const auto beforeZero = labelCalls;
+	Check(v2->resolveIcon(0, nullptr, -1, output.data(), output.size(), &required) == Result::kSuccess &&
+		labelCalls == beforeZero && lastLabel.empty(), "V2 form 0 never derives");
+	Check(v2->getIconLabel(1, -1, nullptr, 0, &required) == Result::kBufferTooSmall && required == 13,
+		"Label size query");
+	std::vector<char> labelOut(required);
+	Check(v2->getIconLabel(1, -1, labelOut.data(), labelOut.size(), &required) == Result::kSuccess &&
+		std::strcmp(labelOut.data(), "weapon_sword") == 0, "Exact label copy");
+	Check(v2->getIconLabel(2, -1, output.data(), output.size(), &required) == Result::kNoMatch && required == 0 &&
+		output[0] == '\0', "Form without a label");
+	Check(v2->getIconLabel(0, -1, output.data(), output.size(), &required) == Result::kInvalidArgument &&
+		v2->getIconLabel(1, 3, output.data(), output.size(), &required) == Result::kInvalidArgument &&
+		v2->getIconLabel(1, -1, output.data(), output.size(), nullptr) == Result::kInvalidArgument,
+		"Label argument validation");
+
 	IconAPI::SetResolver(nullptr);
+	Check(v2->getIconLabel(1, -1, output.data(), output.size(), &required) == Result::kNotReady,
+		"Label queries wait for the matcher");
 	const auto beforeSuspend = calls;
 	Check(api->resolveIcon(1, "label", -1, nullptr, 0, &required) == Result::kNotReady && calls == beforeSuspend,
 		"Suspending the matcher stops lookups");

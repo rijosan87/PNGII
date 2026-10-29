@@ -7,6 +7,7 @@
 namespace PNGII::API
 {
 	inline constexpr std::uint32_t kVersion1 = 1;
+	inline constexpr std::uint32_t kVersion2 = 2;
 	inline constexpr char kExportName[] = "PNGII_RequestAPI";
 
 	enum class Result : std::uint32_t
@@ -39,8 +40,26 @@ namespace PNGII::API
 		ResolveIconFunction resolveIcon;
 	};
 
+	// Version 2 only. SkyUI label PNGII derives from the form (the label an inventory row would carry with I4 off).
+	// Call on Skyrim's UI thread after a save or new game has loaded. formID must be non-zero.
+	// Same buffer contract and result codes as ResolveIconFunction.
+	// kNoMatch: no SkyUI label for this form type, or unknown FormID.
+	using GetIconLabelFunction = Result (*)(std::uint32_t formID, std::int32_t soulStatus,
+		char* label, std::uint32_t capacity, std::uint32_t* requiredSize) noexcept;
+
+	// Request kVersion2 and cast to const InterfaceV2*. Fields are only ever appended:
+	// check structSize covers a field before calling it.
+	struct InterfaceV2
+	{
+		std::uint32_t version;
+		std::uint32_t structSize;
+		// As V1, except a nullptr or empty iconLabel with a non-zero formID matches with the derived label.
+		ResolveIconFunction resolveIcon;
+		GetIconLabelFunction getIconLabel;
+	};
+
 	// The returned table remains valid while PNGIconInjector.dll is loaded.
-	// Request kVersion1 and cast the result to const InterfaceV1*.
+	// Request kVersion1 or kVersion2 and cast the result to const InterfaceV1* or const InterfaceV2*.
 	// An unsupported version returns nullptr. Interface discovery is thread-safe.
 	using RequestAPIFunction = const void* (*)(std::uint32_t version) noexcept;
 }
