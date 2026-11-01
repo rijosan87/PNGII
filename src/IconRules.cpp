@@ -1,4 +1,5 @@
 #include "IconRules.h"
+#include "MMF/Interfaces.h"
 #include "TCCItemStatus.h"
 #include "TextureManager.h"
 
@@ -14,6 +15,20 @@ namespace IconRules
 		constexpr std::int32_t kKeywordTier = 30;
 		constexpr std::int32_t kPluginTier = 20;
 		constexpr std::int32_t kLabelTier = 15;
+		constexpr std::int32_t kLocationTier = 50;
+		constexpr std::int32_t kComapTier = 40;
+		constexpr std::array<std::string_view, 60> kMarkerTypeNames{
+			""sv, "city"sv, "town"sv, "settlement"sv, "cave"sv, "camp"sv, "fort"sv, "nordicruin"sv, "dwemerruin"sv,
+			"shipwreck"sv, "grove"sv, "landmark"sv, "dragonlair"sv, "farm"sv, "woodmill"sv, "mine"sv, "imperialcamp"sv,
+			"stormcloakcamp"sv, "doomstone"sv, "wheatmill"sv, "smelter"sv, "stable"sv, "imperialtower"sv, "clearing"sv,
+			"pass"sv, "altar"sv, "rock"sv, "lighthouse"sv, "orcstronghold"sv, "giantcamp"sv, "shack"sv, "nordictower"sv,
+			"nordicdwelling"sv, "docks"sv, "shrine"sv, "riftencastle"sv, "riftencapitol"sv, "windhelmcastle"sv,
+			"windhelmcapitol"sv, "whiteruncastle"sv, "whiteruncapitol"sv, "solitudecastle"sv, "solitudecapitol"sv,
+			"markarthcastle"sv, "markarthcapitol"sv, "winterholdcastle"sv, "winterholdcapitol"sv, "morthalcastle"sv,
+			"morthalcapitol"sv, "falkreathcastle"sv, "falkreathcapitol"sv, "dawnstarcastle"sv, "dawnstarcapitol"sv,
+			"dlc02miraaktemple"sv, "dlc02ravenrock"sv, "dlc02standingstone"sv, "dlc02telvannitower"sv, "dlc02toskyrim"sv,
+			"dlc02tosolstheim"sv, "dlc02castlekarstaag"sv
+		};
 		constexpr std::array<std::pair<std::string_view, RE::FormType>, 13> kFormTypes{ {
 			{ "ammo"sv, RE::FormType::Ammo }, { "armor"sv, RE::FormType::Armor },
 			{ "book"sv, RE::FormType::Book }, { "ingredient"sv, RE::FormType::Ingredient },
@@ -108,6 +123,27 @@ namespace IconRules
 		std::size_t g_museumRules = 0;
 		std::size_t g_museumIgnored = 0;
 		std::unordered_map<std::string, std::string> g_categoryIcons;
+
+		struct MapRule
+		{
+			std::string path;
+			std::string undiscovered;
+			std::int32_t priority = 0;
+			std::uint32_t order = 0;
+			std::string origin;
+			std::vector<RE::FormID> forms;
+			std::vector<RE::FormID> locations;
+			std::vector<std::string> comapNames;
+			std::vector<const RE::BGSKeyword*> locTypes;
+			std::vector<const RE::TESFile*> plugins;
+			std::vector<std::uint16_t> markerTypes;
+			std::uint8_t map = 0;
+		};
+		std::vector<MapRule> g_mapRules;
+		std::unordered_map<std::uint64_t, const MapRule*> g_mapCache;
+		std::size_t g_mapSkipped = 0;
+		std::size_t g_comapRules = 0;
+		MMF::MapMarkerInterface* g_coMAP = nullptr;
 		std::size_t g_liveRules = 0;
 		std::size_t g_newRules = 0;
 		std::size_t g_knownEffectRules = 0;
@@ -1241,6 +1277,272 @@ namespace IconRules
 			}
 		}
 
+		void LoadMapMarkers(const nlohmann::json& a_list, const std::string& a_file)
+		{
+			if (!a_list.is_array()) {
+				logger::warn("{}: mapMarkers must be an array of rules", a_file);
+				++g_mapSkipped;
+				return;
+			}
+			std::size_t loaded = 0;
+			std::size_t skipped = 0;
+			std::size_t index = 0;
+			for (const auto& entry : a_list) {
+				const auto origin = std::format("{}#map{}", a_file, ++index);
+				const auto skip = [&](std::string_view reason) {
+					logger::warn("{}: {}", origin, reason);
+					++skipped;
+				};
+				if (!entry.is_object() || !entry.contains("match") || !entry["match"].is_object()) {
+					skip("map rule requires a match object");
+					continue;
+				}
+				const auto& match = entry["match"];
+				bool badKey = false;
+				for (const auto& [key, value] : match.items()) {
+					if (key != "form" && key != "location" && key != "comapIcon" && key != "locTypeAny" && key != "plugin" &&
+					    key != "markerType" && key != "map") {
+						skip(std::format("map match key '{}' not supported", key));
+						badKey = true;
+						break;
+					}
+				}
+				if (badKey) {
+					continue;
+				}
+				if (match.size() <= (match.contains("map") ? 1u : 0u)) {
+					skip("map rule needs a match key other than map");
+					continue;
+				}
+				const auto readStrings = [&](const char* a_key, std::vector<std::string>& a_out) {
+					if (!match.contains(a_key)) {
+						return true;
+					}
+					const auto& value = match[a_key];
+					if (value.is_string()) {
+						a_out.push_back(value.get<std::string>());
+						return true;
+					}
+					if (value.is_array() && !value.empty() && std::all_of(value.begin(), value.end(), [](const auto& v) { return v.is_string(); })) {
+						for (const auto& v : value) {
+							a_out.push_back(v.get<std::string>());
+						}
+						return true;
+					}
+					skip(std::format("{} must be a string or a non-empty array of strings", a_key));
+					return false;
+				};
+
+				MapRule rule;
+				rule.origin = origin;
+				std::int32_t priority = 0;
+				std::vector<std::string> values;
+
+				if (match.contains("map")) {
+					const auto map = match["map"].is_string() ? Lower(match["map"].get<std::string>()) : std::string{};
+					if (map != "world" && map != "local") {
+						skip("map must be \"world\" or \"local\"");
+						continue;
+					}
+					rule.map = static_cast<std::uint8_t>(map == "world" ? 1 : 2);
+				}
+				if (!readStrings("form", values)) {
+					continue;
+				}
+				for (const auto& text : values) {
+					if (const auto formID = ResolveForm(text, origin)) {
+						rule.forms.push_back(formID);
+					}
+				}
+				if (!values.empty()) {
+					if (rule.forms.empty()) {
+						skip("no listed form resolved");
+						continue;
+					}
+					priority = (std::max)(priority, kFormTier);
+				}
+				values.clear();
+				if (!readStrings("location", values)) {
+					continue;
+				}
+				for (const auto& text : values) {
+					const auto formID = ResolveForm(text, origin);
+					if (!formID) {
+						continue;
+					}
+					if (RE::TESForm::LookupByID(formID)->GetFormType() != RE::FormType::Location) {
+						logger::warn("{}: location '{}' is not a Location", origin, text);
+						continue;
+					}
+					rule.locations.push_back(formID);
+				}
+				if (!values.empty()) {
+					if (rule.locations.empty()) {
+						skip("no listed location resolved");
+						continue;
+					}
+					priority = (std::max)(priority, kLocationTier);
+				}
+				values.clear();
+				if (!readStrings("comapIcon", values)) {
+					continue;
+				}
+				for (const auto& name : values) {
+					if (!name.empty()) {
+						rule.comapNames.push_back(Lower(name));
+					}
+				}
+				if (!values.empty()) {
+					if (rule.comapNames.empty()) {
+						skip("comapIcon has no non-empty name");
+						continue;
+					}
+					priority = (std::max)(priority, kComapTier);
+				}
+				values.clear();
+				if (!readStrings("locTypeAny", values)) {
+					continue;
+				}
+				for (const auto& id : values) {
+					if (const auto* keyword = FindKeyword(id, origin)) {
+						rule.locTypes.push_back(keyword);
+					}
+				}
+				if (!values.empty()) {
+					if (rule.locTypes.empty()) {
+						skip("no listed locTypeAny keyword resolved");
+						continue;
+					}
+					priority = (std::max)(priority, kKeywordTier);
+				}
+				values.clear();
+				if (!readStrings("plugin", values)) {
+					continue;
+				}
+				auto* handler = RE::TESDataHandler::GetSingleton();
+				for (const auto& name : values) {
+					const auto* file = handler ? handler->LookupModByName(name) : nullptr;
+					if (!file || file->compileIndex == 0xFF) {
+						logger::warn("{}: plugin not loaded '{}'", origin, name);
+						continue;
+					}
+					rule.plugins.push_back(file);
+				}
+				if (!values.empty()) {
+					if (rule.plugins.empty()) {
+						skip("no listed plugin is loaded");
+						continue;
+					}
+					priority = (std::max)(priority, kPluginTier);
+				}
+				values.clear();
+				if (!readStrings("markerType", values)) {
+					continue;
+				}
+				for (const auto& name : values) {
+					const auto key = Lower(name);
+					if (key == "door") {
+						rule.markerTypes.push_back(static_cast<std::uint16_t>(RE::MARKER_TYPE::kDoor));
+						continue;
+					}
+					const auto it = key.empty() ? kMarkerTypeNames.end() : std::ranges::find(kMarkerTypeNames, std::string_view(key));
+					if (it == kMarkerTypeNames.end()) {
+						logger::warn("{}: unknown markerType '{}'", origin, name);
+						continue;
+					}
+					rule.markerTypes.push_back(static_cast<std::uint16_t>(it - kMarkerTypeNames.begin()));
+				}
+				if (!values.empty()) {
+					if (rule.markerTypes.empty()) {
+						skip("no listed markerType is known");
+						continue;
+					}
+					priority = (std::max)(priority, kTypeTier);
+				}
+
+				if (!entry.contains("icon") || !entry["icon"].is_string()) {
+					skip("map rule requires an icon string");
+					continue;
+				}
+				auto icon = entry["icon"].get<std::string>();
+				if (!ValidIcon(icon)) {
+					skip(std::format("bad icon path '{}'", icon));
+					continue;
+				}
+				rule.path = std::string(kIconRoot) + icon;
+				if (!TextureManager::Exists(rule.path)) {
+					skip(std::format("icon not found '{}' (rule skipped, lower rules apply)", rule.path));
+					continue;
+				}
+				if (entry.contains("iconUndiscovered")) {
+					auto variant = entry["iconUndiscovered"].is_string() ? entry["iconUndiscovered"].get<std::string>() : std::string{};
+					if (!ValidIcon(variant)) {
+						logger::warn("{}: bad iconUndiscovered path '{}', field dropped", origin, variant);
+					} else if (const auto fixed = std::string(kIconRoot) + variant; !TextureManager::Exists(fixed)) {
+						logger::warn("{}: iconUndiscovered not found '{}', field dropped", origin, fixed);
+					} else {
+						rule.undiscovered = fixed;
+					}
+				}
+				if (entry.contains("priority")) {
+					const auto& number = entry["priority"];
+					if (!number.is_number_integer() ||
+					    (number.is_number_unsigned() && number.get<std::uint64_t>() > INT32_MAX) ||
+					    (!number.is_number_unsigned() && (number.get<std::int64_t>() < INT32_MIN || number.get<std::int64_t>() > INT32_MAX))) {
+						skip("priority must be a 32-bit integer");
+						continue;
+					}
+					priority = number.get<std::int32_t>();
+				}
+				rule.priority = priority;
+				rule.order = ++g_order;
+				g_comapRules += !rule.comapNames.empty();
+				g_mapRules.push_back(std::move(rule));
+				++loaded;
+			}
+			logger::info("{}: {} map marker rules, {} skipped", a_file, loaded, skipped);
+			g_mapSkipped += skipped;
+		}
+
+		bool MapPasses(const MapRule& a_rule, const MapMarkerQuery& a_query, std::optional<std::string>& a_comapName)
+		{
+			if (a_rule.map && a_rule.map != (a_query.isLocal ? 2 : 1)) {
+				return false;
+			}
+			if (!a_rule.forms.empty() && std::ranges::find(a_rule.forms, a_query.form) == a_rule.forms.end()) {
+				return false;
+			}
+			if (!a_rule.markerTypes.empty() && std::ranges::find(a_rule.markerTypes, a_query.markerType) == a_rule.markerTypes.end()) {
+				return false;
+			}
+			if (!a_rule.plugins.empty() &&
+			    (!a_query.plugin || std::ranges::find(a_rule.plugins, a_query.plugin) == a_rule.plugins.end())) {
+				return false;
+			}
+			if (!a_rule.locations.empty() &&
+			    (!a_query.location || std::ranges::find(a_rule.locations, a_query.location->GetFormID()) == a_rule.locations.end())) {
+				return false;
+			}
+			if (!a_rule.locTypes.empty() &&
+			    (!a_query.location || std::ranges::none_of(a_rule.locTypes, [&](const RE::BGSKeyword* a_keyword) {
+					return a_query.location->HasKeyword(a_keyword);
+				}))) {
+				return false;
+			}
+			if (!a_rule.comapNames.empty()) {
+				if (a_query.isDoor || !g_coMAP || !a_query.ref) {
+					return false;
+				}
+				if (!a_comapName) {
+					a_comapName = Lower(g_coMAP->GetCustomMarkerName(a_query.ref));
+				}
+				if (a_comapName->empty() || std::ranges::find(a_rule.comapNames, *a_comapName) == a_rule.comapNames.end()) {
+					return false;
+				}
+			}
+			return true;
+		}
+
 		void LoadFile(const std::filesystem::path& a_path, Counts& a_total)
 		{
 			const auto name = a_path.filename().string();
@@ -1252,15 +1554,19 @@ namespace IconRules
 			}
 			const auto json = nlohmann::json::parse(stream, nullptr, false, true);
 			const bool hasCategories = json.is_object() && json.contains("categoryIcons");
+			const bool hasMapMarkers = json.is_object() && json.contains("mapMarkers");
 			if (json.is_discarded() || !json.is_object() || !json.contains("version") ||
 			    !json["version"].is_number_integer() || json["version"] != 1 ||
-			    (json.contains("rules") ? !json["rules"].is_array() : !hasCategories)) {
-				logger::warn("{}: invalid JSON or schema (requires integer version 1 and rules array)", name);
+			    (json.contains("rules") ? !json["rules"].is_array() : !hasCategories && !hasMapMarkers)) {
+				logger::warn("{}: invalid JSON or schema (requires integer version 1 and a rules array, categoryIcons or mapMarkers)", name);
 				++a_total.skipped;
 				return;
 			}
 			if (hasCategories) {
 				LoadCategoryIcons(json["categoryIcons"], name);
+			}
+			if (hasMapMarkers) {
+				LoadMapMarkers(json["mapMarkers"], name);
 			}
 			Counts counts;
 			std::size_t index = 0;
@@ -1323,6 +1629,10 @@ namespace IconRules
 			files.size(), total.rules, total.forms, g_byForm.size(), total.typeRules, total.keywordRules, total.pluginRules, total.labelRules, total.statusRules,
 			total.statusIconRules, g_liveRules, g_newRules, g_knownEffectRules, g_effectRules, total.skipped);
 		logger::info("IconRules: {} category icons", g_categoryIcons.size());
+		std::ranges::sort(g_mapRules, [](const MapRule& a, const MapRule& b) {
+			return a.priority > b.priority || (a.priority == b.priority && a.order > b.order);
+		});
+		logger::info("IconRules: {} map marker rules ({} use comapIcon), {} skipped", g_mapRules.size(), g_comapRules, g_mapSkipped);
 		if (g_museumIgnored) {
 			logger::info("IconRules: {} museum rules ignored (TCC unavailable)", g_museumIgnored);
 		}
@@ -1558,9 +1868,67 @@ namespace IconRules
 		return it != g_categoryIcons.end() ? &it->second : nullptr;
 	}
 
+	const std::string* FindMapMarkerIcon(const MapMarkerQuery& a_query, bool a_undiscovered)
+	{
+		if (g_mapRules.empty()) {
+			return nullptr;
+		}
+		const auto key = (std::uint64_t{ a_query.form } << 1) | (a_query.isLocal ? 1u : 0u);
+		const MapRule* rule = nullptr;
+		if (const auto it = g_mapCache.find(key); it != g_mapCache.end()) {
+			rule = it->second;
+		} else {
+			std::optional<std::string> comapName;
+			for (const auto& candidate : g_mapRules) {
+				if (MapPasses(candidate, a_query, comapName)) {
+					rule = &candidate;
+					break;
+				}
+			}
+			g_mapCache.emplace(key, rule);
+			if (g_debug.logMatches) {
+				const auto map = a_query.isLocal ? "local"sv : "world"sv;
+				const auto* kind = a_query.isDoor ? "door" : "marker";
+				if (rule) {
+					logger::info("map {} {} {:08X} type {} -> {} {}", map, kind, a_query.form, a_query.markerType, rule->origin, rule->path);
+				} else {
+					logger::info("map {} {} {:08X} type {} -> none", map, kind, a_query.form, a_query.markerType);
+				}
+			}
+		}
+		if (!rule) {
+			return nullptr;
+		}
+		if (a_undiscovered) {
+			return rule->undiscovered.empty() ? nullptr : &rule->undiscovered;
+		}
+		return &rule->path;
+	}
+
+	bool HasMapMarkerRules()
+	{
+		return !g_mapRules.empty();
+	}
+
+	bool UsesCoMAPNames()
+	{
+		return g_comapRules != 0;
+	}
+
+	void SetCoMAP(MMF::MapMarkerInterface* a_intfc)
+	{
+		g_coMAP = a_intfc;
+	}
+
+	bool HasCoMAP()
+	{
+		return g_coMAP != nullptr;
+	}
+
 	void ClearCache()
 	{
 		g_cache.clear();
+		g_mapCache.clear();
 		g_loggedLabels.clear();
 		g_loggedStatus.clear();
 		g_statusIconCache.clear();

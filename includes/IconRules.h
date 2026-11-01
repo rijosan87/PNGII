@@ -1,5 +1,10 @@
 #pragma once
 
+namespace MMF
+{
+	class MapMarkerInterface;
+}
+
 // Loads the JSON rule files in Data/SKSE/Plugins/PNGIconInjector and resolves icons for forms, labels and statuses.
 // Higher priority wins, then the later file/rule. Match keys and defaults are documented in docs/matching.md.
 namespace IconRules
@@ -87,6 +92,22 @@ namespace IconRules
 	const std::string* FindOrigin(RE::FormID a_formID, std::string_view a_label, std::int32_t a_status);
 	// categoryIcons: full path for a category label (case-insensitive), or nullptr. Built once at load.
 	const std::string* FindCategoryIcon(std::string_view a_label);
+
+	struct MapMarkerQuery
+	{
+		RE::FormID form;
+		RE::BGSLocation* location;
+		const RE::TESFile* plugin;
+		std::uint16_t markerType;
+		bool isLocal;
+		bool isDoor;
+		RE::TESObjectREFR* ref;
+	};
+	const std::string* FindMapMarkerIcon(const MapMarkerQuery& a_query, bool a_undiscovered);
+	bool HasMapMarkerRules();
+	bool UsesCoMAPNames();
+	void SetCoMAP(MMF::MapMarkerInterface* a_intfc);
+	bool HasCoMAP();
 	void LogStats();
 	void ClearCache();
 }

@@ -1,6 +1,8 @@
 #include "ASBridge.h"
 #include "CategoryIcons.h"
 #include "LootIcons.h"
+#include "MapMarkerIcons.h"
+#include "MMF/Interfaces.h"
 #include "QuickLootIcons.h"
 #include "RowIcons.h"
 #include "IconAPI.h"
@@ -64,6 +66,8 @@ namespace
 				"; 1 = show rule icons on TrueHUD Recent Loot cards, 0 = keep TrueHUD's icons." },
 			{ "QuickLoot", "bLootMenuIcons", "1",
 				"; 1 = show rule icons in QuickLoot's loot window, 0 = keep QuickLoot's icons." },
+			{ "MapMarkers", "bMapMarkerIcons", "1",
+				"; 1 = show rule icons on world and local map markers, 0 = keep the map's own icons." },
 		};
 
 		CSimpleIniA ini;
@@ -93,7 +97,8 @@ namespace
 			logger::error("Failed to create the PNGIconInjector.ini directory: {}", ec.message());
 			return;
 		}
-		if (const SI_Error rc = ini.SaveFile(a_path); rc < SI_OK) {
+		// No UTF-8 BOM: GetPrivateProfileStringA would read it as part of the first section name.
+		if (const SI_Error rc = ini.SaveFile(a_path, false); rc < SI_OK) {
 			logger::error("Failed to write PNGIconInjector.ini (SimpleIni error {})", static_cast<int>(rc));
 		} else {
 			logger::info("PNGIconInjector.ini {}: {} default key(s) added", existed ? "updated" : "created", added);
@@ -112,6 +117,7 @@ namespace
 			CategoryIcons::Install();
 			LootIcons::Install();
 			QuickLootIcons::Install();
+			MapMarkerIcons::Install();
 			StatusIcons::Install();
 			NewItems::Install();
 		} else if (a_msg->type == SKSE::MessagingInterface::kPreLoadGame) {
@@ -125,6 +131,18 @@ namespace
 			IconAPI::SetResolver(IconRules::Find);
 			RowIcons::PrewarmIcons();
 			StatusIcons::PrewarmIcons();
+		}
+	}
+
+	// SKSE only delivers to the first null-sender listener per plugin.
+	void ForeignMessage(SKSE::MessagingInterface::Message* a_msg)
+	{
+		// Never call GetVanillaMarkerType: null function pointer.
+		MMF::MapMarkerInterface* coMAP = nullptr;
+		MMF::QueryMapMarkerInterface(a_msg, coMAP);
+		if (coMAP) {
+			IconRules::SetCoMAP(coMAP);
+			logger::info("CoMAP MapMarkerInterface acquired (version {})", coMAP->Version());
 		}
 	}
 }
@@ -182,10 +200,13 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	REX::W32::GetPrivateProfileStringA("QuickLoot", "bLootMenuIcons", "1", buf, sizeof(buf), kIni);
 	const bool quickLootIcons = std::string_view(buf) != "0";
 	QuickLootIcons::SetEnabled(quickLootIcons);
+	REX::W32::GetPrivateProfileStringA("MapMarkers", "bMapMarkerIcons", "1", buf, sizeof(buf), kIni);
+	const bool mapMarkerIcons = std::string_view(buf) != "0";
+	MapMarkerIcons::SetEnabled(mapMarkerIcons);
 	RowIcons::SetTiming(logTiming);
 	StatusIcons::SetTiming(logTiming);
-	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} sharpSVG={}", logMatches, logTiming,
-		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, sharpSVG);
+	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} mapMarkerIcons={} sharpSVG={}", logMatches, logTiming,
+		showProgress, showEffects, maxEffectIcons, harmTint, std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, mapMarkerIcons, sharpSVG);
 	// NG initializes its own logger inside Init unless told not to; it would replace ours.
 	SKSE::Init(a_skse, { .log = false });
 	// SKSE only accepts the co-save unique ID during plugin load.
@@ -196,5 +217,6 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	logger::info("PNG Icon Injector v0.1.0, runtime {}", a_skse->RuntimeVersion().string());
 
 	SKSE::GetMessagingInterface()->RegisterListener(MessageHandler);
+	SKSE::GetMessagingInterface()->RegisterListener(nullptr, ForeignMessage);
 	return true;
 }

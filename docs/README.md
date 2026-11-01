@@ -19,6 +19,7 @@ PNG Icon Injector lets you use any PNG, from a plain icon to full color 3D art, 
 ## Quick references
 
 - [Category bar icons](category-icons.md)
+- [Map marker icons](map-markers.md)
 - [Status icons](status-icons.md)
 - [API: icons for Flash widgets and SKSE plugins](api.md)
 - [Plugin icon API (C++ reference)](plugin-api.md)

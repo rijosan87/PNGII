@@ -3,7 +3,7 @@
 ## Description
 PNG Icon Injector replaces item and spell icons in the vanilla and SkyUI menus with PNG files
 chosen by JSON rules. SVG files work too. No SWF editing. It works in the Inventory, Container, Barter, Gift, Magic,
-Favorites and Crafting menus, TrueHUD Recent Loot and QuickLoot IE.
+Favorites and Crafting menus, TrueHUD Recent Loot, QuickLoot IE, and on world and local map markers.
 
 ## Quick start
 

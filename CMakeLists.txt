@@ -1,7 +1,7 @@
 # PNG Icon Injector - CMake Build Configuration
 cmake_minimum_required(VERSION 3.21)
 
-project(PNGIconInjector VERSION 0.1.0.3 LANGUAGES CXX)
+project(PNGIconInjector VERSION 0.1.0.4 LANGUAGES CXX)
 
 # Output folder configuration
 if(DEFINED ENV{SKYRIM_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_FOLDER}/Data")
@@ -55,6 +55,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
         src/plugin.cpp
         src/CategoryIcons.cpp
         src/LootIcons.cpp
+        src/MapMarkerIcons.cpp
         src/QuickLootIcons.cpp
         src/IconAPI.cpp
         src/IconLabels.cpp

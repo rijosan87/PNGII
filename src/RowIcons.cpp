@@ -194,6 +194,40 @@ namespace RowIcons
 			}
 		};
 
+		bool IsCentreRegistered(RE::GFxValue& a_row, RE::GFxValue& a_iconField, double a_size)
+		{
+			RE::GFxValue bounds;
+			std::array<RE::GFxValue, 1> args{ a_row };
+			if (!a_iconField.Invoke("getBounds", &bounds, args) || !bounds.IsObject()) {
+				return true;
+			}
+			const double xMin = Num(bounds, "xMin", 0.0);
+			const double xMax = Num(bounds, "xMax", 0.0);
+			if (!(xMax > xMin) || xMax - xMin > a_size * 4.0) {
+				return true;
+			}
+			const double offset = (xMin + xMax) / 2.0 - Num(a_iconField, "_x", 0.0);
+			static std::uint32_t logged = 0;
+			if (logged < kLoggedCalls) {
+				++logged;
+				logger::debug("Favorites itemIcon art centre {:.2f} from origin, box {:.2f}", offset, a_size);
+			}
+			return offset < a_size / 4.0;
+		}
+
+		void PlaceHolder(RE::GFxValue& a_row, RE::GFxValue& a_holder, RE::GFxValue& a_iconField, double a_size, bool a_favorites)
+		{
+			double x = Num(a_iconField, "_x", 0.0);
+			double y = Num(a_iconField, "_y", 0.0);
+			// Favorites SWFs differ in itemIcon registration (centre or top-left), so check the art bounds.
+			if (a_favorites && !a_row.HasMember("_iconPosFixed") && IsCentreRegistered(a_row, a_iconField, a_size)) {
+				x -= a_size / 2.0;
+				y -= a_size / 2.0;
+			}
+			a_holder.SetMember("_x", RE::GFxValue(x));
+			a_holder.SetMember("_y", RE::GFxValue(y));
+		}
+
 		void Apply(RE::GFxMovie& a_movie, RE::GFxValue& a_row, RE::GFxValue& a_iconField, const RE::GFxValue& a_entry, bool a_favorites)
 		{
 			RE::GFxValue holder;
@@ -222,15 +256,10 @@ namespace RowIcons
 			}
 
 			const double scale = size / kLoadedImageSize * 100.0;
-			double x = Num(a_iconField, "_x", 0.0);
-			double y = Num(a_iconField, "_y", 0.0);
-			// SkyUI Favorites icons are centre-registered in a 128-unit box; I4 moves itemIcon to the top-left and sets _iconPosFixed.
-			if (a_favorites && !a_row.HasMember("_iconPosFixed")) {
-				x -= size / 2.0;
-				y -= size / 2.0;
+			if (a_favorites) {
+				a_row.SetMember("pngii_favSize", RE::GFxValue(size));
 			}
-			holder.SetMember("_x", RE::GFxValue(x));
-			holder.SetMember("_y", RE::GFxValue(y));
+			PlaceHolder(a_row, holder, a_iconField, size, a_favorites);
 			holder.SetMember("_xscale", RE::GFxValue(scale));
 			holder.SetMember("_yscale", RE::GFxValue(scale));
 			if (a_favorites) {
@@ -343,6 +372,22 @@ namespace RowIcons
 					return;
 				}
 				a_params.thisPtr->Invoke(kOriginalOnLoadInit, a_params.retVal, a_params.args, a_params.argCount);
+
+				// Icon loads async; re-place with the final bounds.
+				RE::GFxValue favSize;
+				RE::GFxValue holder;
+				RE::GFxValue icon;
+				if (a_params.thisPtr->GetMember("pngii_favSize", &favSize) && favSize.IsNumber() &&
+					a_params.thisPtr->GetMember("pngii_holder", &holder) && holder.IsDisplayObject() &&
+					a_params.thisPtr->GetMember("itemIcon", &icon) && icon.IsDisplayObject()) {
+					const double before = Num(holder, "_x", 0.0);
+					PlaceHolder(*a_params.thisPtr, holder, icon, favSize.GetNumber(), true);
+					static std::uint32_t placed = 0;
+					if (placed < kLoggedCalls) {
+						++placed;
+						logger::debug("Favorites onLoadInit re-placed holder x {:.2f} -> {:.2f}", before, Num(holder, "_x", 0.0));
+					}
+				}
 
 				RE::GFxValue hid;
 				if (a_params.argCount < 1 || !a_params.thisPtr->GetMember("pngii_hidIcon", &hid) || !hid.IsBool() || !hid.GetBool()) {
