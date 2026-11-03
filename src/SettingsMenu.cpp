@@ -212,6 +212,11 @@ namespace SettingsMenu
 					}
 					ImGuiMCP::EndTabItem();
 				}
+				if (ImGuiMCP::BeginTabItem(Label("Colors.TabMapMarkers", "tab_color_mapmarkers").c_str())) {
+					Color("Colors.MapMarkerWorld", "sMapMarkerWorld");
+					Color("Colors.MapMarkerLocal", "sMapMarkerLocal");
+					ImGuiMCP::EndTabItem();
+				}
 				ImGuiMCP::EndTabBar();
 			}
 			ImGuiMCP::EndDisabled();

@@ -5,7 +5,7 @@
 
 namespace ColorPresets
 {
-	inline constexpr const char* kColorKeys[] = { "sNewItem", "sBestInClass", "sQuestItem", "sFavorite", "sHarmfulEffect" };
+	inline constexpr const char* kColorKeys[] = { "sNewItem", "sBestInClass", "sQuestItem", "sFavorite", "sHarmfulEffect", "sMapMarkerWorld", "sMapMarkerLocal" };
 	inline constexpr std::size_t kKeyCount = std::size(kColorKeys) + std::size(ItemTints::kCategories) + std::size(ItemTints::kSubs);
 
 	// Every key Apply preset writes, status tints first.

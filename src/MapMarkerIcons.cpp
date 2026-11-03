@@ -1,5 +1,6 @@
 #include "MapMarkerIcons.h"
 #include "IconRules.h"
+#include "StatusIcons.h"
 #include "TextureManager.h"
 
 #include <atomic>
@@ -15,6 +16,8 @@ namespace MapMarkerIcons
 		constexpr auto kInstalledMember = "pngii_mmInstalled";
 		constexpr auto kPathMember = "pngii_mmPath";
 		constexpr auto kDoneMember = "pngii_mmDone";
+		// configUI draws without knowing which Map.MapMenu instance owns the clip.
+		constexpr auto kLocalMember = "pngii_mmLocal";
 		constexpr std::int32_t kHolderDepth = 5000;
 		// BSScaleformImageLoader::LoadImage reports every registered image as 64x64.
 		constexpr double kLoadedImageSize = 64.0;
@@ -23,6 +26,7 @@ namespace MapMarkerIcons
 		constexpr std::uint32_t kLoggedCalls = 8;
 
 		std::atomic<bool> g_enabled = true;
+		std::array<std::atomic<std::uint32_t>, 2> g_tints{};
 		double g_stageHeight = kInventoryStageHeight;
 		bool g_warnedMismatch = false;
 		bool g_coMAPMissingLogged = false;
@@ -123,6 +127,7 @@ namespace MapMarkerIcons
 			const bool undiscovered = Bool(a_clip, "isUndiscovered", false);
 			if (const auto* path = IconRules::FindMapMarkerIcon(query, undiscovered)) {
 				a_clip.SetMember(kPathMember, RE::GFxValue(path->c_str()));
+				a_clip.SetMember(kLocalMember, RE::GFxValue(a_local));
 			}
 		}
 
@@ -194,12 +199,20 @@ namespace MapMarkerIcons
 			holder.SetMember("_y", RE::GFxValue(yMin + (height - side) / 2.0));
 			holder.SetMember("_xscale", RE::GFxValue(scale));
 			holder.SetMember("_yscale", RE::GFxValue(scale));
+			// Tint the outer holder and load into a child, so loadClip never replaces the tinted clip.
+			RE::GFxValue image;
+			if (!holder.CreateEmptyMovieClip(&image, "pngii_mmImage", 0)) {
+				return;
+			}
+			if (const auto tint = g_tints[Bool(a_clip, kLocalMember, false) ? 1 : 0].load()) {
+				StatusIcons::SetTint(a_movie, holder, tint);
+			}
 
 			RE::GFxValue loader;
 			a_movie.CreateObject(&loader, "MovieClipLoader");
 			a_clip.SetMember("pngii_mmLoader", loader);
 			a_clip.SetMember("pngii_mmHolder", holder);
-			std::array<RE::GFxValue, 2> args{ RE::GFxValue(url->c_str()), holder };
+			std::array<RE::GFxValue, 2> args{ RE::GFxValue(url->c_str()), image };
 			loader.Invoke("loadClip", args);
 			icon.SetMember("_visible", RE::GFxValue(false));
 		}
@@ -383,6 +396,12 @@ namespace MapMarkerIcons
 	void SetEnabled(bool a_enabled)
 	{
 		g_enabled = a_enabled;
+	}
+
+	void SetTints(std::uint32_t a_world, std::uint32_t a_local)
+	{
+		g_tints[0] = a_world;
+		g_tints[1] = a_local;
 	}
 
 	void Install()

@@ -1,7 +1,7 @@
 # PNG Icon Injector - CMake Build Configuration
 cmake_minimum_required(VERSION 3.21)
 
-project(PNGIconInjector VERSION 0.1.0.5 LANGUAGES CXX)
+project(PNGIconInjector VERSION 0.1.0.6 LANGUAGES CXX)
 
 # Output folder configuration
 if(DEFINED ENV{SKYRIM_FOLDER} AND IS_DIRECTORY "$ENV{SKYRIM_FOLDER}/Data")

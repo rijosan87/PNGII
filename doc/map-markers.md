@@ -45,6 +45,10 @@ All keys in one `match` must be true. Any key takes one value or a list.
 | `iconUndiscovered` | Optional. Icon for undiscovered markers. Without it, undiscovered markers keep the map's own icon. |
 | `priority` | Optional. Higher wins. Defaults: `form` 100, `location` 50, `comapIcon` 40, `locTypeAny` 30, `plugin` 20, `markerType` 10. |
 
+## Colors
+
+Icons drawn by these rules can be tinted, one color for the world map and one for the local map: Colors page in SKSE Menu Framework (Map markers tab), or `[Colors] sMapMarkerWorld` / `sMapMarkerLocal`. `FFFFFF` means no tint. Vanilla and CoMAP art is never tinted.
+
 ## Turn it off
 
 `PNGIconInjector.ini`: `[MapMarkers] bMapMarkerIcons = 0`.

@@ -58,6 +58,8 @@ namespace Settings
 				{ "Colors", "sQuestItem", "FFFFFF" },
 				{ "Colors", "sFavorite", "FFFFFF" },
 				{ "Colors", "sHarmfulEffect", "CC3333" },
+				{ "Colors", "sMapMarkerWorld", "FFFFFF" },
+				{ "Colors", "sMapMarkerLocal", "FFFFFF" },
 		};
 
 		// Item tint keys come from the ItemTints tables so the page, presets and INI cannot drift; all default to white (no tint).
@@ -182,6 +184,9 @@ namespace Settings
 			colors.favorite = tint("sFavorite");
 			IconRules::SetStatusColors(colors);
 			ItemTints::Set(tint);
+			const std::uint32_t mapWorldTint = tint("sMapMarkerWorld");
+			const std::uint32_t mapLocalTint = tint("sMapMarkerLocal");
+			MapMarkerIcons::SetTints(mapWorldTint, mapLocalTint);
 			IconRules::SetIngredientIcons(showProgress, showEffects ? maxEffectIcons : 0, harmTint);
 			REX::W32::GetPrivateProfileStringA("StatusIcons", "fStatusIconSize", "0.65", buf, sizeof(buf), kIni);
 			double statusSize = 0.65;
@@ -227,8 +232,8 @@ namespace Settings
 			logger::info("settings{}: menus off=[{}] itemTabs={} craftingTabs={} status={} museum={} quest={} enchantment={} new={} upgrade={}",
 				a_startup ? "" : " (reloaded)", menusOff, MenuToggles::g_itemTabs, MenuToggles::g_craftingTabs, sources.enabled,
 				sources.museum, sources.questItem, sources.enchantment, sources.newItem, sources.upgrade);
-			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} (0 = art colors), item tints set={}", customColors,
-				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite, ItemTints::ActiveCount());
+			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} mapWorld={:06X} mapLocal={:06X} (0 = art colors), item tints set={}", customColors,
+				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite, mapWorldTint, mapLocalTint, ItemTints::ActiveCount());
 			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} mapMarkerIcons={}",
 				logMatches, logTiming, showProgress, showEffects, maxEffectIcons, harmTint,
 				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, mapMarkerIcons);
