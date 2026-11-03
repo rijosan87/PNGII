@@ -72,6 +72,15 @@ namespace IconRules
 		bool upgrade = true;
 	};
 	void SetStatusSources(const StatusSources& a_sources);
+	// 0xRRGGBB multiply tint per source, 0 = the art's own colors.
+	struct StatusColors
+	{
+		std::uint32_t newItem = 0;
+		std::uint32_t bestInClass = 0;
+		std::uint32_t questItem = 0;
+		std::uint32_t favorite = 0;
+	};
+	void SetStatusColors(const StatusColors& a_colors);
 	struct FileStats
 	{
 		std::string name;

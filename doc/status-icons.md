@@ -66,7 +66,7 @@ Only the harmful version of an effect (Damage Health, not Restore Health), with 
 { "match": { "knownEffect": { "primaryValue": "Health", "detrimental": true } }, "statusIcon": "effects/damage_health.png", "priority": 20 }
 ```
 
-- Harmful effects are tinted with red color in INI `sHarmfulEffectColor`. You may set `sHarmfulEffectColor = FFFFFF` to turn the tint off.
+- Harmful effects are tinted red by INI `[Colors] sHarmfulEffect` (Colors page in SKSE Menu Framework). Set it to `FFFFFF` to turn the tint off.
 - You may also use `detrimental` rule to pick your own icons for harmful effects, this will disable the tint as well.
 - Max icons per row: `iMaxEffectIcons`. Default 2.
 

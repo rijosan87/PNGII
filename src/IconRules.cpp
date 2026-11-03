@@ -166,6 +166,7 @@ namespace IconRules
 		std::uint32_t g_harmTint = 0;
 		Timer g_resolveTimer;
 		StatusSources g_sources;
+		StatusColors g_colors;
 		std::vector<FileStats> g_fileStats;
 
 		void ResolveKeywords();
@@ -1703,6 +1704,11 @@ namespace IconRules
 		g_sources = a_sources;
 	}
 
+	void SetStatusColors(const StatusColors& a_colors)
+	{
+		g_colors = a_colors;
+	}
+
 	const std::vector<FileStats>& LoadedFiles()
 	{
 		return g_fileStats;
@@ -1817,7 +1823,9 @@ namespace IconRules
 			if (rule->replace) {
 				taken |= static_cast<std::uint8_t>(1u << (rule->replace - 1));
 			}
-			a_out.push_back({ &rule->path, rule->replace, 0 });
+			const auto tint = rule->newItem ? g_colors.newItem : rule->bestInClass ? g_colors.bestInClass :
+			                  rule->questItem ? g_colors.questItem : rule->favorite ? g_colors.favorite : 0u;
+			a_out.push_back({ &rule->path, rule->replace, tint });
 		}
 		const auto effectMask = static_cast<std::uint8_t>((a_live >> kLiveEffectShift) & kLiveEffectMask);
 		if (effectMask && g_maxEffectIcons && !capped) {

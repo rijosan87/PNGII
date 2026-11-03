@@ -1,4 +1,5 @@
 #include "SettingsMenu.h"
+#include "ColorPresets.h"
 #include "IconRules.h"
 #include "Settings.h"
 #include "TCCItemStatus.h"
@@ -89,7 +90,6 @@ namespace SettingsMenu
 			Toggle("Quest item", "StatusIcons", "bQuestItem");
 			Toggle("Enchantment (known, unknown, cannot disenchant)", "StatusIcons", "bEnchantment");
 			Toggle("New item", "StatusIcons", "bNewItem");
-			Toggle("Upgrade over equipped", "StatusIcons", "bUpgrade");
 			ImGuiMCP::SeparatorText("Ingredients");
 			Toggle("Learned-effects progress", "StatusIcons", "bShowIngredientProgress");
 			Toggle("Discovered-effect icons", "StatusIcons", "bShowEffectIcons");
@@ -101,20 +101,6 @@ namespace SettingsMenu
 				Set("StatusIcons", "iMaxEffectIcons", std::to_string(maxEffects));
 			}
 
-			std::string_view hex = g_ini.GetValue("StatusIcons", "sHarmfulEffectColor", "CC3333");
-			if (hex.starts_with('#')) {
-				hex.remove_prefix(1);
-			} else if (hex.starts_with("0x") || hex.starts_with("0X")) {
-				hex.remove_prefix(2);
-			}
-			std::uint32_t rgb = 0xCC3333;
-			std::from_chars(hex.data(), hex.data() + hex.size(), rgb, 16);
-			float color[3]{ ((rgb >> 16) & 0xFF) / 255.0f, ((rgb >> 8) & 0xFF) / 255.0f, (rgb & 0xFF) / 255.0f };
-			if (ImGuiMCP::ColorEdit3("Harmful effect tint (white = none)", color)) {
-				const auto channel = [](float a_value) { return static_cast<unsigned>(std::clamp(a_value, 0.0f, 1.0f) * 255.0f + 0.5f); };
-				Set("StatusIcons", "sHarmfulEffectColor", std::format("{:02X}{:02X}{:02X}", channel(color[0]), channel(color[1]), channel(color[2])));
-			}
-
 			ImGuiMCP::SeparatorText("Size");
 			float size = 0.7f;
 			const std::string_view sizeText = g_ini.GetValue("StatusIcons", "fStatusIconSize", "0.7");
@@ -122,6 +108,55 @@ namespace SettingsMenu
 			if (ImGuiMCP::SliderFloat("Status icon size (fraction of row)", &size, 0.3f, 0.9f, "%.2f")) {
 				Set("StatusIcons", "fStatusIconSize", std::format("{:.2f}", size));
 			}
+			ImGuiMCP::EndDisabled();
+		}
+
+		void Color(const char* a_label, const char* a_key)
+		{
+			std::string_view hex = g_ini.GetValue("Colors", a_key, Settings::Default("Colors", a_key));
+			if (hex.starts_with('#')) {
+				hex.remove_prefix(1);
+			} else if (hex.starts_with("0x") || hex.starts_with("0X")) {
+				hex.remove_prefix(2);
+			}
+			std::uint32_t rgb = 0xFFFFFF;
+			std::from_chars(hex.data(), hex.data() + hex.size(), rgb, 16);
+			float color[3]{ ((rgb >> 16) & 0xFF) / 255.0f, ((rgb >> 8) & 0xFF) / 255.0f, (rgb & 0xFF) / 255.0f };
+			if (ImGuiMCP::ColorEdit3(a_label, color, ImGuiMCP::ImGuiColorEditFlags_NoInputs)) {
+				const auto channel = [](float a_value) { return static_cast<unsigned>(std::clamp(a_value, 0.0f, 1.0f) * 255.0f + 0.5f); };
+				Set("Colors", a_key, std::format("{:02X}{:02X}{:02X}", channel(color[0]), channel(color[1]), channel(color[2])));
+			}
+		}
+
+		void ColorsPage()
+		{
+			Toggle("Use custom colors", "Colors", "bUseCustomColors");
+			ImGuiMCP::BeginDisabled(std::string_view(g_ini.GetValue("Colors", "bUseCustomColors", "1")) == "0");
+
+			static int preset = 0;
+			ImGuiMCP::SetNextItemWidth(200.0f);
+			if (ImGuiMCP::BeginCombo("##pngii_color_preset", ColorPresets::kPresets[preset].name)) {
+				for (int i = 0; i < static_cast<int>(std::size(ColorPresets::kPresets)); ++i) {
+					if (ImGuiMCP::Selectable(ColorPresets::kPresets[i].name, i == preset)) {
+						preset = i;
+					}
+				}
+				ImGuiMCP::EndCombo();
+			}
+			ImGuiMCP::SameLine();
+			if (ImGuiMCP::Button("Apply preset")) {
+				for (const auto* key : ColorPresets::kColorKeys) {
+					Set("Colors", key, ColorPresets::ValueFor(ColorPresets::kPresets[preset], key));
+				}
+			}
+
+			ImGuiMCP::SeparatorText("Status icons");
+			ImGuiMCP::TextDisabled("Tints multiply into the art, so they suit white icons. White keeps the art's own colors.");
+			Color("New item", "sNewItem");
+			Color("Best in class", "sBestInClass");
+			Color("Quest item", "sQuestItem");
+			Color("Favorite", "sFavorite");
+			Color("Harmful ingredient effect", "sHarmfulEffect");
 			ImGuiMCP::EndDisabled();
 		}
 
@@ -211,7 +246,7 @@ namespace SettingsMenu
 			ImGuiMCP::Image(texture, ImGuiMCP::ImVec2(width, width / kBannerAspect));
 		}
 
-		void __stdcall Render()
+		void Page(void (*a_body)())
 		{
 			if (!g_loaded) {
 				Load();
@@ -223,7 +258,14 @@ namespace SettingsMenu
 				ImGuiMCP::TextDisabled("Changes save at once and apply the next time a menu opens.");
 			}
 			ImGuiMCP::Separator();
+			a_body();
+			if (g_pending && !ImGuiMCP::IsAnyItemActive()) {
+				Save();
+			}
+		}
 
+		void SettingsTabs()
+		{
 			if (ImGuiMCP::BeginTabBar("pngii_settings")) {
 				const std::pair<const char*, void (*)()> tabs[] = {
 					{ "Menus", MenusTab }, { "Status icons", StatusTab }, { "Other", OtherTab },
@@ -237,10 +279,10 @@ namespace SettingsMenu
 				}
 				ImGuiMCP::EndTabBar();
 			}
-			if (g_pending && !ImGuiMCP::IsAnyItemActive()) {
-				Save();
-			}
 		}
+
+		void __stdcall RenderSettings() { Page(SettingsTabs); }
+		void __stdcall RenderColors() { Page(ColorsPage); }
 	}
 
 	void Register()
@@ -251,7 +293,8 @@ namespace SettingsMenu
 			return;
 		}
 		SKSEMenuFramework::SetSection("SVG and PNG Icon Injector");
-		SKSEMenuFramework::AddSectionItem("Settings", Render);
+		SKSEMenuFramework::AddSectionItem("Settings", RenderSettings);
+		SKSEMenuFramework::AddSectionItem("Colors", RenderColors);
 		logger::info("settings menu: registered with SKSE Menu Framework");
 	}
 }
