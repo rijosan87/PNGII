@@ -2,6 +2,7 @@
 #include "CategoryIcons.h"
 #include "LootIcons.h"
 #include "MapMarkerIcons.h"
+#include "MenuToggles.h"
 #include "MMF/Interfaces.h"
 #include "QuickLootIcons.h"
 #include "RowIcons.h"
@@ -14,6 +15,8 @@
 #include "TextureManager.h"
 #include <REX/W32/KERNEL32.h>
 #include <SimpleIni.h>
+
+#include <ranges>
 
 namespace
 {
@@ -50,6 +53,26 @@ namespace
 				"; 1 = log which rule each item matched, once per item. For rule authors." },
 			{ "Debug", "bLogTiming", "0",
 				"; 1 = log menu and rule timing when a menu closes." },
+			{ "Menus", "bInventory", "1",
+				"; 0 = leave a menu untouched: no item, category tab or status icons there. Rules still apply elsewhere." },
+			{ "Menus", "bContainer", "1", nullptr },
+			{ "Menus", "bBarter", "1", nullptr },
+			{ "Menus", "bGift", "1", nullptr },
+			{ "Menus", "bMagic", "1", "; Spells, powers and shouts list." },
+			{ "Menus", "bFavorites", "1", nullptr },
+			{ "Menus", "bCrafting", "1", "; Forge, smelter, tanning rack, enchanting and alchemy." },
+			{ "Categories", "bItemMenuTabs", "1",
+				"; 1 = PNG category tab icons in Inventory, Container, Barter, Gift and Magic, 0 = SkyUI's own tab icons." },
+			{ "Categories", "bCraftingTabs", "1",
+				"; 1 = PNG category icons in crafting menus (tabs and the alchemy column), 0 = SkyUI's own." },
+			{ "StatusIcons", "bEnabled", "1",
+				"; 0 = no status icons after item names at all (every statusIcon rule is ignored)." },
+			{ "StatusIcons", "bMuseum", "1",
+				"; Per source, 0 = ignore those statusIcon rules. Museum = Legacy of the Dragonborn New/Found/Displayed." },
+			{ "StatusIcons", "bQuestItem", "1", nullptr },
+			{ "StatusIcons", "bEnchantment", "1", "; Known, unknown and cannot-disenchant enchantment icons." },
+			{ "StatusIcons", "bNewItem", "1", "; Items picked up since the menu was last opened." },
+			{ "StatusIcons", "bUpgrade", "1", "; Armor and weapons better than what is equipped." },
 			{ "StatusIcons", "bShowIngredientProgress", "1",
 				"; 1 = show the learned-effects progress icon on ingredients, 0 = hide it." },
 			{ "StatusIcons", "bShowEffectIcons", "1",
@@ -68,6 +91,8 @@ namespace
 				"; 1 = show rule icons in QuickLoot's loot window, 0 = keep QuickLoot's icons." },
 			{ "MapMarkers", "bMapMarkerIcons", "1",
 				"; 1 = show rule icons on world and local map markers, 0 = keep the map's own icons." },
+			{ "RuleFiles", "sDisabled", "",
+				"; Rule files to skip, comma-separated, from SKSE/Plugins/PNGIconInjector/. Example: 05_Spells.json, 13_Diseases-Vanilla" },
 		};
 
 		CSimpleIniA ini;
@@ -203,6 +228,50 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	REX::W32::GetPrivateProfileStringA("MapMarkers", "bMapMarkerIcons", "1", buf, sizeof(buf), kIni);
 	const bool mapMarkerIcons = std::string_view(buf) != "0";
 	MapMarkerIcons::SetEnabled(mapMarkerIcons);
+	const auto readOn = [&](const char* a_section, const char* a_key) {
+		REX::W32::GetPrivateProfileStringA(a_section, a_key, "1", buf, sizeof(buf), kIni);
+		return std::string_view(buf) != "0";
+	};
+	std::string menusOff;
+	for (const auto& [key, menu] : { std::pair{ "bInventory", RE::InventoryMenu::MENU_NAME }, std::pair{ "bContainer", RE::ContainerMenu::MENU_NAME },
+		     std::pair{ "bBarter", RE::BarterMenu::MENU_NAME }, std::pair{ "bGift", RE::GiftMenu::MENU_NAME },
+		     std::pair{ "bMagic", RE::MagicMenu::MENU_NAME }, std::pair{ "bFavorites", RE::FavoritesMenu::MENU_NAME },
+		     std::pair{ "bCrafting", RE::CraftingMenu::MENU_NAME } }) {
+		const bool on = readOn("Menus", key);
+		MenuToggles::SetMenu(menu, on);
+		if (!on) {
+			menusOff += menusOff.empty() ? "" : ",";
+			menusOff += menu;
+		}
+	}
+	MenuToggles::g_itemTabs = readOn("Categories", "bItemMenuTabs");
+	MenuToggles::g_craftingTabs = readOn("Categories", "bCraftingTabs");
+	IconRules::LoadFilter filter;
+	filter.statusIcons = readOn("StatusIcons", "bEnabled");
+	filter.museum = readOn("StatusIcons", "bMuseum");
+	filter.questItem = readOn("StatusIcons", "bQuestItem");
+	filter.enchantment = readOn("StatusIcons", "bEnchantment");
+	filter.newItem = readOn("StatusIcons", "bNewItem");
+	filter.upgrade = readOn("StatusIcons", "bUpgrade");
+	// Names are compared lowercase with .json; "05_Spells" and "05_spells.JSON" both match 05_Spells.json.
+	char filesBuf[1024]{};
+	REX::W32::GetPrivateProfileStringA("RuleFiles", "sDisabled", "", filesBuf, sizeof(filesBuf), kIni);
+	for (const auto part : std::string_view(filesBuf) | std::views::split(',')) {
+		std::string name(std::string_view(part.begin(), part.end()));
+		std::erase_if(name, [](unsigned char c) { return std::isspace(c); });
+		std::ranges::transform(name, name.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+		if (name.empty()) {
+			continue;
+		}
+		if (!name.ends_with(".json")) {
+			name += ".json";
+		}
+		filter.offFiles.push_back(std::move(name));
+	}
+	logger::info("settings: menus off=[{}] itemTabs={} craftingTabs={} status={} museum={} quest={} enchantment={} new={} upgrade={} rule files off={}",
+		menusOff, MenuToggles::g_itemTabs, MenuToggles::g_craftingTabs, filter.statusIcons, filter.museum, filter.questItem,
+		filter.enchantment, filter.newItem, filter.upgrade, filter.offFiles.size());
+	IconRules::SetLoadFilter(std::move(filter));
 	RowIcons::SetTiming(logTiming);
 	StatusIcons::SetTiming(logTiming);
 	logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} mapMarkerIcons={} sharpSVG={}", logMatches, logTiming,

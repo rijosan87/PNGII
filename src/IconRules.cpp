@@ -165,6 +165,8 @@ namespace IconRules
 		bool g_showProgress = true;
 		std::uint32_t g_harmTint = 0;
 		Timer g_resolveTimer;
+		LoadFilter g_filter;
+		std::size_t g_iniDropped = 0;
 
 		void ResolveKeywords();
 		std::string Lower(std::string_view a_text);
@@ -1009,6 +1011,13 @@ namespace IconRules
 				++g_museumIgnored;
 				return;
 			}
+			// After validation so a disabled source still reports broken rules.
+			if (isStatusIcon && (!g_filter.statusIcons || (hasMuseum && !g_filter.museum) || (hasQuest && !g_filter.questItem) ||
+			                     (hasEnchant && !g_filter.enchantment) || (hasNew && !g_filter.newItem) ||
+			                     (hasUpgrade && !g_filter.upgrade))) {
+				++g_iniDropped;
+				return;
+			}
 			std::uint32_t parts = 0;
 			if (hasParts) {
 				const auto& values = match["parts"];
@@ -1615,6 +1624,14 @@ namespace IconRules
 			const auto bLower = Lower(bName);
 			return aLower == bLower ? aName < bName : aLower < bLower;
 		});
+		for (const auto& off : g_filter.offFiles) {
+			const auto removed = std::erase_if(files, [&](const auto& a_path) { return Lower(a_path.filename().string()) == off; });
+			if (removed) {
+				logger::info("{}: disabled in PNGIconInjector.ini [RuleFiles]", off);
+			} else {
+				logger::warn("{}: listed in [RuleFiles] sDisabled but no such rule file", off);
+			}
+		}
 		Counts total;
 		for (const auto& file : files) {
 			LoadFile(file, total);
@@ -1635,6 +1652,9 @@ namespace IconRules
 		logger::info("IconRules: {} map marker rules ({} use comapIcon), {} skipped", g_mapRules.size(), g_comapRules, g_mapSkipped);
 		if (g_museumIgnored) {
 			logger::info("IconRules: {} museum rules ignored (TCC unavailable)", g_museumIgnored);
+		}
+		if (g_iniDropped) {
+			logger::info("IconRules: {} status icon rules off by PNGIconInjector.ini [StatusIcons]", g_iniDropped);
 		}
 		if (g_debug.logTiming) {
 			logger::info("IconRules load {:.2f} ms", std::chrono::duration<double, std::milli>(
@@ -1691,6 +1711,11 @@ namespace IconRules
 	void SetDebug(bool a_matches, bool a_timing)
 	{
 		g_debug = Settings{ a_matches, a_timing };
+	}
+
+	void SetLoadFilter(LoadFilter a_filter)
+	{
+		g_filter = std::move(a_filter);
 	}
 
 	void SetIngredientIcons(bool a_progress, std::uint32_t a_maxEffects, std::uint32_t a_harmTint)

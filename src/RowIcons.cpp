@@ -1,5 +1,6 @@
 #include "RowIcons.h"
 #include "IconRules.h"
+#include "MenuToggles.h"
 #include "TextureManager.h"
 
 namespace RowIcons
@@ -500,7 +501,9 @@ namespace RowIcons
 					return RE::BSEventNotifyControl::kContinue;
 				}
 				if (a_event->opening) {
-					ScheduleInstall(*menu, 120);
+					if (MenuToggles::Menu(menu->menu)) {
+						ScheduleInstall(*menu, 120);
+					}
 				} else {
 					logger::info("{} closed", menu->menu);
 					IconRules::LogStats();

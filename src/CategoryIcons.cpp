@@ -1,5 +1,6 @@
 #include "CategoryIcons.h"
 #include "IconRules.h"
+#include "MenuToggles.h"
 #include "TextureManager.h"
 
 namespace CategoryIcons
@@ -266,7 +267,8 @@ namespace CategoryIcons
 			RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
 				RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
 			{
-				if (a_event && a_event->opening && IsCategoryMenu(a_event->menuName.c_str())) {
+				if (a_event && a_event->opening && IsCategoryMenu(a_event->menuName.c_str()) &&
+				    MenuToggles::Tabs(a_event->menuName.c_str())) {
 					ScheduleInstall(a_event->menuName.c_str(), 120);
 				}
 				return RE::BSEventNotifyControl::kContinue;

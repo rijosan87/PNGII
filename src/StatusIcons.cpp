@@ -1,5 +1,6 @@
 #include "StatusIcons.h"
 #include "IconRules.h"
+#include "MenuToggles.h"
 #include "NewItems.h"
 #include "TCCItemStatus.h"
 #include "TextureManager.h"
@@ -671,7 +672,9 @@ namespace StatusIcons
 				}
 				if (a_event->opening) {
 					g_openMenu = *menu;
-					ScheduleInstall(*menu, 120);
+					if (MenuToggles::Menu(*menu)) {
+						ScheduleInstall(*menu, 120);
+					}
 					return RE::BSEventNotifyControl::kContinue;
 				}
 				NewItems::CommitSeen();
