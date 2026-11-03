@@ -58,13 +58,3 @@ void ReadIcon(const PNGII::API::InterfaceV1& api, std::uint32_t formID,
 ## Load the image
 
 Read the returned game-resource path with `RE::BSResourceNiBinaryStream` to support loose files and loaded BSAs, then decode and render the PNG in the consuming plugin. Keep the caller's fallback available for unmatched rules and image-loading failures. PNGII's result identifies the selected artwork; decoding and GPU resource ownership belong to the consuming renderer.
-
-## Run the API tests
-
-```text
-cmake -S tests -B build/api-tests
-cmake --build build/api-tests --config Release
-ctest --test-dir build/api-tests -C Release --output-on-failure
-```
-
-The standalone tests cover the query contract. On Windows, a separate consumer also discovers the exported API from a test DLL and retrieves a path into its own buffer. Runtime verification compares queried paths against PNGII's menu icons for form, keyword, I4-label and soul-gem rules, including another save load.

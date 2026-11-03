@@ -29,7 +29,7 @@ Restart Skyrim after editing rules; there is no hot reload.
 
 ## Plugin integration
 
-Flash widgets and other SKSE plugins can query the selected icon. See [`docs/`](docs/README.md).
+Flash widgets and other SKSE plugins can query the selected icon. See [`doc/`](doc/README.md).
 
 ## Build
 
