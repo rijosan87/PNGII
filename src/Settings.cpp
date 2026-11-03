@@ -25,6 +25,7 @@ namespace Settings
 		};
 
 		constexpr IniDefault kDefaults[] = {
+				{ "Localization", "sLanguage", "en" },
 				{ "Debug", "sLogLevel", "info" },
 				{ "Debug", "bLogMatches", "0" },
 				{ "Debug", "bLogTiming", "0" },

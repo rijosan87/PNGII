@@ -1280,12 +1280,12 @@ namespace IconRules
 			}
 		}
 
-		void LoadMapMarkers(const nlohmann::json& a_list, const std::string& a_file)
+		std::pair<std::size_t, std::size_t> LoadMapMarkers(const nlohmann::json& a_list, const std::string& a_file)
 		{
 			if (!a_list.is_array()) {
 				logger::warn("{}: mapMarkers must be an array of rules", a_file);
 				++g_mapSkipped;
-				return;
+				return { 0, 1 };
 			}
 			std::size_t loaded = 0;
 			std::size_t skipped = 0;
@@ -1505,6 +1505,7 @@ namespace IconRules
 			}
 			logger::info("{}: {} map marker rules, {} skipped", a_file, loaded, skipped);
 			g_mapSkipped += skipped;
+			return { loaded, skipped };
 		}
 
 		bool MapPasses(const MapRule& a_rule, const MapMarkerQuery& a_query, std::optional<std::string>& a_comapName)
@@ -1570,8 +1571,9 @@ namespace IconRules
 			if (hasCategories) {
 				LoadCategoryIcons(json["categoryIcons"], name);
 			}
+			std::pair<std::size_t, std::size_t> map{};
 			if (hasMapMarkers) {
-				LoadMapMarkers(json["mapMarkers"], name);
+				map = LoadMapMarkers(json["mapMarkers"], name);
 			}
 			Counts counts;
 			std::size_t index = 0;
@@ -1579,7 +1581,7 @@ namespace IconRules
 				LoadRule(rule, std::format("{}#{}", name, ++index), counts);
 			}
 			logger::info("{}: {} rules, {} forms, {} skipped", name, counts.rules, counts.forms, counts.skipped);
-			g_fileStats.push_back({ name, counts.rules, counts.statusIconRules, counts.skipped, false });
+			g_fileStats.push_back({ name, counts.rules, counts.statusIconRules, counts.skipped, false, map.first, map.second });
 			a_total.rules += counts.rules;
 			a_total.forms += counts.forms;
 			a_total.typeRules += counts.typeRules;

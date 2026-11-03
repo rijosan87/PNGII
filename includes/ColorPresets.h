@@ -29,7 +29,7 @@ namespace ColorPresets
 
 	struct Preset
 	{
-		const char* name;
+		const char* key;
 		std::array<Value, kKeyCount> values{};
 	};
 

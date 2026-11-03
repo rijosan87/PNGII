@@ -62,6 +62,7 @@ add_commonlibsse_plugin(${PROJECT_NAME}
         src/ASBridge.cpp
         src/IconRules.cpp
         src/ItemTints.cpp
+        src/Localization.cpp
         src/NewItems.cpp
         src/RowIcons.cpp
         src/Settings.cpp

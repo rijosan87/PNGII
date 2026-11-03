@@ -8,70 +8,68 @@ namespace ItemTints
 {
 	struct Category
 	{
-		const char* key;
-		const char* name;
+		const char* key;  // Display name: ItemTints.<key> in the translation file
 	};
 
 	struct Sub
 	{
 		std::uint8_t category;  // Index into kCategories
 		const char* key;
-		const char* name;
 	};
 
 	inline constexpr Category kCategories[] = {
-		{ "sItemWeapons", "Weapons" },
-		{ "sItemArmor", "Armor" },
-		{ "sItemAmmo", "Ammo" },
-		{ "sItemPotions", "Potions" },
-		{ "sItemPoisons", "Poisons" },
-		{ "sItemFood", "Food and drink" },
-		{ "sItemIngredients", "Ingredients" },
-		{ "sItemBooks", "Books" },
-		{ "sItemScrolls", "Scrolls" },
-		{ "sItemSoulGems", "Soul gems" },
-		{ "sItemKeys", "Keys" },
-		{ "sItemMisc", "Misc" },
+		{ "sItemWeapons" },
+		{ "sItemArmor" },
+		{ "sItemAmmo" },
+		{ "sItemPotions" },
+		{ "sItemPoisons" },
+		{ "sItemFood" },
+		{ "sItemIngredients" },
+		{ "sItemBooks" },
+		{ "sItemScrolls" },
+		{ "sItemSoulGems" },
+		{ "sItemKeys" },
+		{ "sItemMisc" },
 	};
 
 	// Label to subcategory mapping lives in ItemTints.cpp; keep both in the same order.
 	inline constexpr Sub kSubs[] = {
-		{ 0, "sItemWeaponsSwords", "Swords" },
-		{ 0, "sItemWeaponsDaggers", "Daggers" },
-		{ 0, "sItemWeaponsAxes", "Axes" },
-		{ 0, "sItemWeaponsBlunt", "Blunt" },
-		{ 0, "sItemWeaponsBows", "Bows" },
-		{ 0, "sItemWeaponsCrossbows", "Crossbows" },
-		{ 0, "sItemWeaponsStaves", "Staves" },
-		{ 0, "sItemWeaponsTools", "Tools" },
-		{ 1, "sItemArmorShields", "Shields" },
-		{ 1, "sItemArmorHeavy", "Heavy" },
-		{ 1, "sItemArmorLight", "Light" },
-		{ 1, "sItemArmorClothing", "Clothing" },
-		{ 1, "sItemArmorJewelry", "Jewelry" },
-		{ 2, "sItemAmmoArrows", "Arrows" },
-		{ 2, "sItemAmmoBolts", "Bolts" },
-		{ 3, "sItemPotionsHealth", "Health" },
-		{ 3, "sItemPotionsMagicka", "Magicka" },
-		{ 3, "sItemPotionsStamina", "Stamina" },
-		{ 3, "sItemPotionsResist", "Resist" },
-		{ 5, "sItemFoodFood", "Food" },
-		{ 5, "sItemFoodDrinks", "Drinks" },
-		{ 7, "sItemBooksBooks", "Books" },
-		{ 7, "sItemBooksSpellTomes", "Spell tomes" },
-		{ 7, "sItemBooksNotes", "Notes" },
-		{ 9, "sItemSoulGemsEmpty", "Empty" },
-		{ 9, "sItemSoulGemsPartial", "Partial" },
-		{ 9, "sItemSoulGemsFilled", "Filled" },
-		{ 11, "sItemMiscGems", "Gems" },
-		{ 11, "sItemMiscGold", "Gold" },
-		{ 11, "sItemMiscIngots", "Ingots" },
-		{ 11, "sItemMiscHides", "Hides" },
-		{ 11, "sItemMiscAnimalParts", "Animal parts" },
-		{ 11, "sItemMiscArtifacts", "Artifacts" },
-		{ 11, "sItemMiscClutter", "Clutter" },
-		{ 11, "sItemMiscFirewood", "Firewood" },
-		{ 11, "sItemMiscLockpicks", "Lockpicks" },
+		{ 0, "sItemWeaponsSwords" },
+		{ 0, "sItemWeaponsDaggers" },
+		{ 0, "sItemWeaponsAxes" },
+		{ 0, "sItemWeaponsBlunt" },
+		{ 0, "sItemWeaponsBows" },
+		{ 0, "sItemWeaponsCrossbows" },
+		{ 0, "sItemWeaponsStaves" },
+		{ 0, "sItemWeaponsTools" },
+		{ 1, "sItemArmorShields" },
+		{ 1, "sItemArmorHeavy" },
+		{ 1, "sItemArmorLight" },
+		{ 1, "sItemArmorClothing" },
+		{ 1, "sItemArmorJewelry" },
+		{ 2, "sItemAmmoArrows" },
+		{ 2, "sItemAmmoBolts" },
+		{ 3, "sItemPotionsHealth" },
+		{ 3, "sItemPotionsMagicka" },
+		{ 3, "sItemPotionsStamina" },
+		{ 3, "sItemPotionsResist" },
+		{ 5, "sItemFoodFood" },
+		{ 5, "sItemFoodDrinks" },
+		{ 7, "sItemBooksBooks" },
+		{ 7, "sItemBooksSpellTomes" },
+		{ 7, "sItemBooksNotes" },
+		{ 9, "sItemSoulGemsEmpty" },
+		{ 9, "sItemSoulGemsPartial" },
+		{ 9, "sItemSoulGemsFilled" },
+		{ 11, "sItemMiscGems" },
+		{ 11, "sItemMiscGold" },
+		{ 11, "sItemMiscIngots" },
+		{ 11, "sItemMiscHides" },
+		{ 11, "sItemMiscAnimalParts" },
+		{ 11, "sItemMiscArtifacts" },
+		{ 11, "sItemMiscClutter" },
+		{ 11, "sItemMiscFirewood" },
+		{ 11, "sItemMiscLockpicks" },
 	};
 
 	// a_read returns the key's tint (0 = none), already 0 when the master switch is off. Main/UI thread like SetStatusColors.

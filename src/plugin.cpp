@@ -10,6 +10,7 @@
 #include "IconAPI.h"
 #include "IconLabels.h"
 #include "IconRules.h"
+#include "Localization.h"
 #include "NewItems.h"
 #include "StatusIcons.h"
 #include "TCCItemStatus.h"
@@ -47,6 +48,10 @@ namespace
 			MapMarkerIcons::Install();
 			StatusIcons::Install();
 			NewItems::Install();
+			// Before Register: page names are translated at registration.
+			char language[32]{};
+			REX::W32::GetPrivateProfileStringA("Localization", "sLanguage", "en", language, sizeof(language), ".\\Data\\SKSE\\Plugins\\PNGIconInjector.ini");
+			Localization::Load(language);
 			SettingsMenu::Register();
 		} else if (a_msg->type == SKSE::MessagingInterface::kPreLoadGame) {
 			IconAPI::SetResolver(nullptr);

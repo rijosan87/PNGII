@@ -88,6 +88,8 @@ namespace IconRules
 		std::size_t statusIconRules = 0;
 		std::size_t skipped = 0;
 		bool invalid = false;
+		std::size_t mapMarkerRules = 0;
+		std::size_t mapMarkerSkipped = 0;
 	};
 	const std::vector<FileStats>& LoadedFiles();
 	std::size_t MapMarkerRuleCount();
