@@ -1,10 +1,12 @@
 #include "SettingsMenu.h"
 #include "ColorPresets.h"
 #include "IconRules.h"
+#include "ItemTints.h"
 #include "Settings.h"
 #include "TCCItemStatus.h"
 
 #include <SimpleIni.h>
+#include <numeric>
 
 #ifndef NOMINMAX
 #	define NOMINMAX
@@ -103,7 +105,7 @@ namespace SettingsMenu
 
 			ImGuiMCP::SeparatorText("Size");
 			float size = 0.7f;
-			const std::string_view sizeText = g_ini.GetValue("StatusIcons", "fStatusIconSize", "0.7");
+			const std::string_view sizeText = g_ini.GetValue("StatusIcons", "fStatusIconSize", "0.65");
 			std::from_chars(sizeText.data(), sizeText.data() + sizeText.size(), size);
 			if (ImGuiMCP::SliderFloat("Status icon size (fraction of row)", &size, 0.3f, 0.9f, "%.2f")) {
 				Set("StatusIcons", "fStatusIconSize", std::format("{:.2f}", size));
@@ -145,18 +147,54 @@ namespace SettingsMenu
 			}
 			ImGuiMCP::SameLine();
 			if (ImGuiMCP::Button("Apply preset")) {
-				for (const auto* key : ColorPresets::kColorKeys) {
+				for (const auto* key : ColorPresets::AllKeys()) {
 					Set("Colors", key, ColorPresets::ValueFor(ColorPresets::kPresets[preset], key));
 				}
 			}
 
-			ImGuiMCP::SeparatorText("Status icons");
-			ImGuiMCP::TextDisabled("Tints multiply into the art, so they suit white icons. White keeps the art's own colors.");
-			Color("New item", "sNewItem");
-			Color("Best in class", "sBestInClass");
-			Color("Quest item", "sQuestItem");
-			Color("Favorite", "sFavorite");
-			Color("Harmful ingredient effect", "sHarmfulEffect");
+			if (ImGuiMCP::BeginTabBar("##pngii_color_tabs")) {
+				if (ImGuiMCP::BeginTabItem("Status icons")) {
+					Color("New item", "sNewItem");
+					Color("Best in class", "sBestInClass");
+					Color("Quest item", "sQuestItem");
+					Color("Favorite", "sFavorite");
+					Color("Harmful ingredient effect", "sHarmfulEffect");
+					ImGuiMCP::EndTabItem();
+				}
+				if (ImGuiMCP::BeginTabItem("Item icons")) {
+					ImGuiMCP::TextDisabled("Color a whole category, or a subcategory on its own. White = no tint.");
+					// Alphabetical for display only; ItemTints indices stay in table order.
+					static const auto order = [] {
+						std::vector<std::size_t> categories(std::size(ItemTints::kCategories));
+						std::iota(categories.begin(), categories.end(), std::size_t{ 0 });
+						std::ranges::sort(categories, {}, [](std::size_t a_index) { return std::string_view(ItemTints::kCategories[a_index].name); });
+						std::vector<std::size_t> subs(std::size(ItemTints::kSubs));
+						std::iota(subs.begin(), subs.end(), std::size_t{ 0 });
+						std::ranges::sort(subs, {}, [](std::size_t a_index) { return std::string_view(ItemTints::kSubs[a_index].name); });
+						return std::pair{ categories, subs };
+					}();
+					for (const auto c : order.first) {
+						const auto& category = ItemTints::kCategories[c];
+						const auto count = std::ranges::count_if(ItemTints::kSubs, [&](const auto& a_sub) { return a_sub.category == c; });
+						// Swatch on the header line so the category color is editable while collapsed.
+						Color(std::format("##{}", category.key).c_str(), category.key);
+						ImGuiMCP::SameLine();
+						// The count tells an empty group apart before it is opened; ##key keeps the id stable.
+						if (ImGuiMCP::CollapsingHeader(std::format("{} ({})##{}", category.name, count, category.key).c_str())) {
+							ImGuiMCP::Indent();
+							for (const auto i : order.second) {
+								const auto& sub = ItemTints::kSubs[i];
+								if (sub.category == c) {
+									Color(std::format("{}##{}", sub.name, sub.key).c_str(), sub.key);
+								}
+							}
+							ImGuiMCP::Unindent();
+						}
+					}
+					ImGuiMCP::EndTabItem();
+				}
+				ImGuiMCP::EndTabBar();
+			}
 			ImGuiMCP::EndDisabled();
 		}
 

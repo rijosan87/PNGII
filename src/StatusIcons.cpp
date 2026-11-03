@@ -42,7 +42,7 @@ namespace StatusIcons
 		IconRules::Timer g_timer;
 		using Clock = std::chrono::steady_clock;
 		std::uint32_t g_lastPx = 0;
-		double g_sizeFraction = 0.7;
+		double g_sizeFraction = 0.65;
 		std::string_view g_openMenu;
 
 		void RunPrewarm(std::uint32_t a_px, std::size_t a_next, std::uint32_t a_added, std::uint64_t a_workNs)
@@ -365,37 +365,6 @@ namespace StatusIcons
 			return true;
 		}
 
-		// Multiply tint via the AS2 Color class: setTransform takes percent multipliers, so white art takes the color and dark detail stays dark. a_rgb 0 restores identity.
-		void SetTint(RE::GFxMovie& a_movie, RE::GFxValue& a_child, std::uint32_t a_rgb)
-		{
-			static std::uint32_t logged = 0;
-			RE::GFxValue transform;
-			a_movie.CreateObject(&transform);
-			const auto percent = [&](std::uint32_t a_shift) { return a_rgb ? ((a_rgb >> a_shift) & 0xFFu) * 100.0 / 255.0 : 100.0; };
-			transform.SetMember("ra", RE::GFxValue(percent(16)));
-			transform.SetMember("ga", RE::GFxValue(percent(8)));
-			transform.SetMember("ba", RE::GFxValue(percent(0)));
-			transform.SetMember("aa", RE::GFxValue(100.0));
-			for (const auto* offset : { "rb", "gb", "bb", "ab" }) {
-				transform.SetMember(offset, RE::GFxValue(0.0));
-			}
-			RE::GFxValue color;
-			std::array<RE::GFxValue, 1> ctor{ a_child };
-			a_movie.CreateObject(&color, "Color", ctor.data(), 1);
-			if (!color.IsObject()) {
-				if (logged < kLoggedCalls) {
-					++logged;
-					logger::warn("status tint: Color class unavailable, icon left untinted");
-				}
-				return;
-			}
-			std::array<RE::GFxValue, 1> args{ transform };
-			color.Invoke("setTransform", args);
-			if (logged < kLoggedCalls) {
-				++logged;
-				logger::debug("status tint: {:06X}", a_rgb);
-			}
-		}
 
 		void HideChild(RE::GFxValue& a_container, std::size_t a_index)
 		{
@@ -697,6 +666,39 @@ namespace StatusIcons
 				return RE::BSEventNotifyControl::kContinue;
 			}
 		};
+	}
+
+	// Multiply tint via the AS2 Color class: white art becomes the color, dark detail stays dark (setRGB would flatten it).
+	void SetTint(RE::GFxMovie& a_movie, RE::GFxValue& a_child, std::uint32_t a_rgb)
+	{
+		static std::uint32_t logged = 0;
+		RE::GFxValue transform;
+		a_movie.CreateObject(&transform);
+		const auto percent = [&](std::uint32_t a_shift) { return a_rgb ? ((a_rgb >> a_shift) & 0xFFu) * 100.0 / 255.0 : 100.0; };
+		transform.SetMember("ra", RE::GFxValue(percent(16)));
+		transform.SetMember("ga", RE::GFxValue(percent(8)));
+		transform.SetMember("ba", RE::GFxValue(percent(0)));
+		// aa is the same multiplier as _alpha; a fixed 100 undoes the Favorites selection dim.
+		transform.SetMember("aa", RE::GFxValue(Num(a_child, "_alpha", 100.0)));
+		for (const auto* offset : { "rb", "gb", "bb", "ab" }) {
+			transform.SetMember(offset, RE::GFxValue(0.0));
+		}
+		RE::GFxValue color;
+		std::array<RE::GFxValue, 1> ctor{ a_child };
+		a_movie.CreateObject(&color, "Color", ctor.data(), 1);
+		if (!color.IsObject()) {
+			if (logged < kLoggedCalls) {
+				++logged;
+				logger::warn("tint: Color class unavailable, icon left untinted");
+			}
+			return;
+		}
+		std::array<RE::GFxValue, 1> args{ transform };
+		color.Invoke("setTransform", args);
+		if (logged < kLoggedCalls) {
+			++logged;
+			logger::debug("tint: {:06X}", a_rgb);
+		}
 	}
 
 	void Install()

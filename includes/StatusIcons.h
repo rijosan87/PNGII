@@ -12,4 +12,6 @@ namespace StatusIcons
 	void SetSize(double a_fraction);
 	// Safe before Install ran or without TCC: no paths, nothing queued.
 	void PrewarmIcons();
+	// Multiply tint on a loaded clip, 0xRRGGBB, 0 = identity. Keeps the clip's _alpha.
+	void SetTint(RE::GFxMovie& a_movie, RE::GFxValue& a_child, std::uint32_t a_rgb);
 }

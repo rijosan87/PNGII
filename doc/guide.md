@@ -18,7 +18,7 @@ PNG icons:    Data/Interface/PNGIconInjector/MyIcons/sword.png
 | Icon | Source size | Drawn at 1080p |
 | --- | --- | --- |
 | Row icon | 128 px | about 27 px |
-| Status icon | 128 px | about 24 px (`fStatusIconSize=0.7` in `PNGIconInjector.ini`) |
+| Status icon | 128 px | about 22 px (`fStatusIconSize=0.65` in `PNGIconInjector.ini`) |
 | Category tab | 128 px | 48 px |
 
 At 4K the drawn size will be roughly double and it happens automatically, so you don't need a separate PNG.

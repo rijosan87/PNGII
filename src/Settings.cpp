@@ -1,5 +1,6 @@
 #include "Settings.h"
 #include "IconRules.h"
+#include "ItemTints.h"
 #include "LootIcons.h"
 #include "MapMarkerIcons.h"
 #include "MenuToggles.h"
@@ -45,7 +46,7 @@ namespace Settings
 				{ "StatusIcons", "bShowIngredientProgress", "1" },
 				{ "StatusIcons", "bShowEffectIcons", "1" },
 				{ "StatusIcons", "iMaxEffectIcons", "2" },
-				{ "StatusIcons", "fStatusIconSize", "0.7" },
+				{ "StatusIcons", "fStatusIconSize", "0.65" },
 				{ "Icons", "bSharpSVG", "1" },
 				{ "TrueHUD", "bRecentLootIcons", "1" },
 				{ "QuickLoot", "bLootMenuIcons", "1" },
@@ -57,6 +58,21 @@ namespace Settings
 				{ "Colors", "sFavorite", "FFFFFF" },
 				{ "Colors", "sHarmfulEffect", "CC3333" },
 		};
+
+		// Item tint keys come from the ItemTints tables so the page, presets and INI cannot drift; all default to white (no tint).
+		constexpr auto kItemTintDefault = "FFFFFF";
+
+		std::vector<const char*> ItemTintKeys()
+		{
+			std::vector<const char*> keys;
+			for (const auto& category : ItemTints::kCategories) {
+				keys.push_back(category.key);
+			}
+			for (const auto& sub : ItemTints::kSubs) {
+				keys.push_back(sub.key);
+			}
+			return keys;
+		}
 
 		void EnsureIni(const char* a_path)
 		{
@@ -82,6 +98,12 @@ namespace Settings
 			for (const auto& d : kDefaults) {
 				if (!ini.GetValue(d.section, d.key)) {
 					ini.SetValue(d.section, d.key, d.value);
+					++added;
+				}
+			}
+			for (const auto* key : ItemTintKeys()) {
+				if (!ini.GetValue("Colors", key)) {
+					ini.SetValue("Colors", key, kItemTintDefault);
 					++added;
 				}
 			}
@@ -158,9 +180,10 @@ namespace Settings
 			colors.questItem = tint("sQuestItem");
 			colors.favorite = tint("sFavorite");
 			IconRules::SetStatusColors(colors);
+			ItemTints::Set(tint);
 			IconRules::SetIngredientIcons(showProgress, showEffects ? maxEffectIcons : 0, harmTint);
-			REX::W32::GetPrivateProfileStringA("StatusIcons", "fStatusIconSize", "0.7", buf, sizeof(buf), kIni);
-			double statusSize = 0.7;
+			REX::W32::GetPrivateProfileStringA("StatusIcons", "fStatusIconSize", "0.65", buf, sizeof(buf), kIni);
+			double statusSize = 0.65;
 			std::from_chars(buf, buf + std::string_view(buf).size(), statusSize);
 			StatusIcons::SetSize(statusSize);
 
@@ -203,8 +226,8 @@ namespace Settings
 			logger::info("settings{}: menus off=[{}] itemTabs={} craftingTabs={} status={} museum={} quest={} enchantment={} new={} upgrade={}",
 				a_startup ? "" : " (reloaded)", menusOff, MenuToggles::g_itemTabs, MenuToggles::g_craftingTabs, sources.enabled,
 				sources.museum, sources.questItem, sources.enchantment, sources.newItem, sources.upgrade);
-			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} (0 = art colors)", customColors,
-				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite);
+			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} (0 = art colors), item tints set={}", customColors,
+				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite, ItemTints::ActiveCount());
 			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} mapMarkerIcons={}",
 				logMatches, logTiming, showProgress, showEffects, maxEffectIcons, harmTint,
 				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, mapMarkerIcons);
@@ -216,6 +239,13 @@ namespace Settings
 		for (const auto& d : kDefaults) {
 			if (std::string_view(d.section) == a_section && std::string_view(d.key) == a_key) {
 				return d.value;
+			}
+		}
+		if (std::string_view(a_section) == "Colors") {
+			for (const auto* key : ItemTintKeys()) {
+				if (std::string_view(key) == a_key) {
+					return kItemTintDefault;
+				}
 			}
 		}
 		return "";

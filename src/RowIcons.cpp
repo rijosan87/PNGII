@@ -1,6 +1,8 @@
 #include "RowIcons.h"
 #include "IconRules.h"
+#include "ItemTints.h"
 #include "MenuToggles.h"
+#include "StatusIcons.h"
 #include "TextureManager.h"
 
 namespace RowIcons
@@ -181,8 +183,15 @@ namespace RowIcons
 				RE::GFxValue row;
 				RE::GFxValue show;
 				if (a_params.argCount < 1 || !a_params.args[0].IsDisplayObject() ||
-					!a_params.args[0].GetMember("_parent", &row) || !row.IsDisplayObject() ||
-					!row.GetMember("pngii_holderShow", &show) || !show.IsBool() || show.GetBool()) {
+					!a_params.args[0].GetMember("_parent", &row) || !row.IsDisplayObject()) {
+					return;
+				}
+				// loadClip may drop the color transform, so each finished load puts the item tint back.
+				RE::GFxValue tint;
+				if (row.GetMember("pngii_tint", &tint) && tint.IsNumber() && tint.GetNumber() != 0.0) {
+					StatusIcons::SetTint(*a_params.movie, a_params.args[0], static_cast<std::uint32_t>(tint.GetNumber()));
+				}
+				if (!row.GetMember("pngii_holderShow", &show) || !show.IsBool() || show.GetBool()) {
 					return;
 				}
 				a_params.args[0].SetMember("_visible", RE::GFxValue(false));
@@ -268,7 +277,8 @@ namespace RowIcons
 			}
 
 			RE::GFxValue current;
-			if (!a_row.GetMember("pngii_url", &current) || !current.IsString() || *url != current.GetString()) {
+			const bool reload = !a_row.GetMember("pngii_url", &current) || !current.IsString() || *url != current.GetString();
+			if (reload) {
 				RE::GFxValue loader;
 				a_movie.CreateObject(&loader, "MovieClipLoader");
 				static auto holderLoadHandler = RE::make_gptr<HolderLoadInitHandler>();
@@ -283,6 +293,17 @@ namespace RowIcons
 				std::array<RE::GFxValue, 2> args{ RE::GFxValue(url->c_str()), holder };
 				loader.Invoke("loadClip", args);
 				a_row.SetMember("pngii_url", RE::GFxValue(url->c_str()));
+			}
+
+			// Compared with the row's last tint so a recycled row going untinted gets the identity transform back.
+			const auto status = Num(a_entry, "status", -1.0);
+			const auto tint = ItemTints::For(static_cast<RE::FormID>(Num(a_entry, "formId", 0.0)),
+				status == 0.0 || status == 1.0 || status == 2.0 ? static_cast<std::int32_t>(status) : -1);
+			RE::GFxValue previous;
+			if (reload || !a_row.GetMember("pngii_tint", &previous) || !previous.IsNumber() ||
+				static_cast<std::uint32_t>(previous.GetNumber()) != tint) {
+				StatusIcons::SetTint(a_movie, holder, tint);
+				a_row.SetMember("pngii_tint", RE::GFxValue(static_cast<double>(tint)));
 			}
 
 			a_row.SetMember("pngii_holderShow", RE::GFxValue(true));
