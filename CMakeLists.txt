@@ -63,6 +63,8 @@ add_commonlibsse_plugin(${PROJECT_NAME}
         src/IconRules.cpp
         src/NewItems.cpp
         src/RowIcons.cpp
+        src/Settings.cpp
+        src/SettingsMenu.cpp
         src/StatusIcons.cpp
         src/TCCItemStatus.cpp
         src/TextureManager.cpp

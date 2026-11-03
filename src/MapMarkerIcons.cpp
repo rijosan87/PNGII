@@ -2,6 +2,8 @@
 #include "IconRules.h"
 #include "TextureManager.h"
 
+#include <atomic>
+
 namespace MapMarkerIcons
 {
 	namespace
@@ -20,7 +22,7 @@ namespace MapMarkerIcons
 		constexpr double kInventoryStageHeight = 720.0;
 		constexpr std::uint32_t kLoggedCalls = 8;
 
-		bool g_enabled = true;
+		std::atomic<bool> g_enabled = true;
 		double g_stageHeight = kInventoryStageHeight;
 		bool g_warnedMismatch = false;
 		bool g_coMAPMissingLogged = false;
@@ -370,7 +372,7 @@ namespace MapMarkerIcons
 			RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
 				RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
 			{
-				if (a_event && a_event->opening && a_event->menuName == RE::MapMenu::MENU_NAME) {
+				if (g_enabled && a_event && a_event->opening && a_event->menuName == RE::MapMenu::MENU_NAME) {
 					ScheduleInstall(120);
 				}
 				return RE::BSEventNotifyControl::kContinue;
@@ -389,16 +391,12 @@ namespace MapMarkerIcons
 			logger::info("Map marker icons: off (VR)");
 			return;
 		}
-		if (!g_enabled) {
-			logger::info("Map marker icons: off (INI bMapMarkerIcons=0)");
-			return;
-		}
 		if (!IconRules::HasMapMarkerRules()) {
 			logger::info("Map marker icons: off (no mapMarkers rules loaded)");
 			return;
 		}
 		static MenuSink menuSink;
 		RE::UI::GetSingleton()->AddEventSink<RE::MenuOpenCloseEvent>(&menuSink);
-		logger::info("Map marker icons: sink registered");
+		logger::info("Map marker icons: sink registered ({})", g_enabled ? "on" : "off");
 	}
 }

@@ -2,6 +2,8 @@
 #include "IconRules.h"
 #include "TextureManager.h"
 
+#include <atomic>
+
 namespace QuickLootIcons
 {
 	namespace
@@ -23,7 +25,7 @@ namespace QuickLootIcons
 		// StageToScreenPx assumes InventoryMenu's 720-unit stage.
 		constexpr double kInventoryStageHeight = 720.0;
 
-		bool g_enabled = true;
+		std::atomic<bool> g_enabled = true;
 		// LootMenuIE.swf stage is 1920 x 1080. Set from the movie def at install.
 		double g_stageHeight = kInventoryStageHeight;
 
@@ -106,7 +108,7 @@ namespace QuickLootIcons
 			}
 			a_row.GetMember("pngii_qlHolder", &holder);
 			a_movie.GetVariable(&lootMenu, kLootMenu);
-			if (!a_data.IsObject() || (lootMenu.IsObject() && !Bool(lootMenu, "showItemIcons", true))) {
+			if (!g_enabled || !a_data.IsObject() || (lootMenu.IsObject() && !Bool(lootMenu, "showItemIcons", true))) {
 				Restore(a_row, icon, holder);
 				return;
 			}
@@ -298,12 +300,8 @@ namespace QuickLootIcons
 
 	void Install()
 	{
-		if (!g_enabled) {
-			logger::info("QuickLoot icons: off (INI bLootMenuIcons=0)");
-			return;
-		}
 		static MenuSink menuSink;
 		RE::UI::GetSingleton()->AddEventSink<RE::MenuOpenCloseEvent>(&menuSink);
-		logger::info("QuickLoot icons: sink registered");
+		logger::info("QuickLoot icons: sink registered ({})", g_enabled ? "on" : "off");
 	}
 }

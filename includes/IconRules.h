@@ -61,18 +61,28 @@ namespace IconRules
 	// INI [StatusIcons]. a_progress off skips knownEffects rules; a_maxEffects is clamped to kMaxEffectIcons and 0
 	// turns knownEffect icons off. a_harmTint (0xRRGGBB, 0 = none) tints effect icons of detrimental effects.
 	void SetIngredientIcons(bool a_progress, std::uint32_t a_maxEffects, std::uint32_t a_harmTint);
-	// INI [RuleFiles] and [StatusIcons] switches; set before Load. Filtered rules never load, so their runtime work is skipped too.
-	struct LoadFilter
+	// Checked per row, so a change shows at the next menu open.
+	struct StatusSources
 	{
-		std::vector<std::string> offFiles;  // Lowercase file names with .json
-		bool statusIcons = true;            // Off drops every statusIcon rule
+		bool enabled = true;
 		bool museum = true;
 		bool questItem = true;
 		bool enchantment = true;
 		bool newItem = true;
 		bool upgrade = true;
 	};
-	void SetLoadFilter(LoadFilter a_filter);
+	void SetStatusSources(const StatusSources& a_sources);
+	struct FileStats
+	{
+		std::string name;
+		std::size_t rules = 0;
+		std::size_t statusIconRules = 0;
+		std::size_t skipped = 0;
+		bool invalid = false;
+	};
+	const std::vector<FileStats>& LoadedFiles();
+	std::size_t MapMarkerRuleCount();
+	std::size_t CategoryIconCount();
 	Timer TakeResolveTiming();
 	void Load();
 	// Resolves keyword identifiers before menu use. Safe from kPostLoadGame on.

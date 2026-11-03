@@ -165,8 +165,8 @@ namespace IconRules
 		bool g_showProgress = true;
 		std::uint32_t g_harmTint = 0;
 		Timer g_resolveTimer;
-		LoadFilter g_filter;
-		std::size_t g_iniDropped = 0;
+		StatusSources g_sources;
+		std::vector<FileStats> g_fileStats;
 
 		void ResolveKeywords();
 		std::string Lower(std::string_view a_text);
@@ -1011,13 +1011,6 @@ namespace IconRules
 				++g_museumIgnored;
 				return;
 			}
-			// After validation so a disabled source still reports broken rules.
-			if (isStatusIcon && (!g_filter.statusIcons || (hasMuseum && !g_filter.museum) || (hasQuest && !g_filter.questItem) ||
-			                     (hasEnchant && !g_filter.enchantment) || (hasNew && !g_filter.newItem) ||
-			                     (hasUpgrade && !g_filter.upgrade))) {
-				++g_iniDropped;
-				return;
-			}
 			std::uint32_t parts = 0;
 			if (hasParts) {
 				const auto& values = match["parts"];
@@ -1559,6 +1552,7 @@ namespace IconRules
 			if (!stream) {
 				logger::warn("{}: cannot open rule file", name);
 				++a_total.skipped;
+				g_fileStats.push_back({ name, 0, 0, 0, true });
 				return;
 			}
 			const auto json = nlohmann::json::parse(stream, nullptr, false, true);
@@ -1569,6 +1563,7 @@ namespace IconRules
 			    (json.contains("rules") ? !json["rules"].is_array() : !hasCategories && !hasMapMarkers)) {
 				logger::warn("{}: invalid JSON or schema (requires integer version 1 and a rules array, categoryIcons or mapMarkers)", name);
 				++a_total.skipped;
+				g_fileStats.push_back({ name, 0, 0, 0, true });
 				return;
 			}
 			if (hasCategories) {
@@ -1583,6 +1578,7 @@ namespace IconRules
 				LoadRule(rule, std::format("{}#{}", name, ++index), counts);
 			}
 			logger::info("{}: {} rules, {} forms, {} skipped", name, counts.rules, counts.forms, counts.skipped);
+			g_fileStats.push_back({ name, counts.rules, counts.statusIconRules, counts.skipped, false });
 			a_total.rules += counts.rules;
 			a_total.forms += counts.forms;
 			a_total.typeRules += counts.typeRules;
@@ -1624,14 +1620,6 @@ namespace IconRules
 			const auto bLower = Lower(bName);
 			return aLower == bLower ? aName < bName : aLower < bLower;
 		});
-		for (const auto& off : g_filter.offFiles) {
-			const auto removed = std::erase_if(files, [&](const auto& a_path) { return Lower(a_path.filename().string()) == off; });
-			if (removed) {
-				logger::info("{}: disabled in PNGIconInjector.ini [RuleFiles]", off);
-			} else {
-				logger::warn("{}: listed in [RuleFiles] sDisabled but no such rule file", off);
-			}
-		}
 		Counts total;
 		for (const auto& file : files) {
 			LoadFile(file, total);
@@ -1652,9 +1640,6 @@ namespace IconRules
 		logger::info("IconRules: {} map marker rules ({} use comapIcon), {} skipped", g_mapRules.size(), g_comapRules, g_mapSkipped);
 		if (g_museumIgnored) {
 			logger::info("IconRules: {} museum rules ignored (TCC unavailable)", g_museumIgnored);
-		}
-		if (g_iniDropped) {
-			logger::info("IconRules: {} status icon rules off by PNGIconInjector.ini [StatusIcons]", g_iniDropped);
 		}
 		if (g_debug.logTiming) {
 			logger::info("IconRules load {:.2f} ms", std::chrono::duration<double, std::milli>(
@@ -1713,9 +1698,24 @@ namespace IconRules
 		g_debug = Settings{ a_matches, a_timing };
 	}
 
-	void SetLoadFilter(LoadFilter a_filter)
+	void SetStatusSources(const StatusSources& a_sources)
 	{
-		g_filter = std::move(a_filter);
+		g_sources = a_sources;
+	}
+
+	const std::vector<FileStats>& LoadedFiles()
+	{
+		return g_fileStats;
+	}
+
+	std::size_t MapMarkerRuleCount()
+	{
+		return g_mapRules.size();
+	}
+
+	std::size_t CategoryIconCount()
+	{
+		return g_categoryIcons.size();
 	}
 
 	void SetIngredientIcons(bool a_progress, std::uint32_t a_maxEffects, std::uint32_t a_harmTint)
@@ -1776,7 +1776,7 @@ namespace IconRules
 		std::vector<StatusIconMatch>& a_out)
 	{
 		a_out.clear();
-		if (g_statusIconRules.empty() || !a_formID) {
+		if (g_statusIconRules.empty() || !a_formID || !g_sources.enabled) {
 			return;
 		}
 		const auto soulBit = a_soulStatus >= 0 && a_soulStatus <= 2 ? static_cast<std::uint8_t>(1u << a_soulStatus) : std::uint8_t{ 0 };
@@ -1792,7 +1792,10 @@ namespace IconRules
 			       (a_rule.questItem && !(a_live & kLiveQuest)) || (a_rule.enchantment && !(a_rule.enchantment & enchantBit)) ||
 			       (a_rule.newItem && !(a_live & kLiveNew)) || (a_rule.knownEffects && !(a_rule.knownEffects & knownBit)) ||
 			       (a_rule.upgrade && !(a_live & kLiveUpgrade)) || (a_rule.bestInClass && !(a_live & kLiveBest)) ||
-			       (a_rule.favorite && !(a_live & kLiveFavorite));
+			       (a_rule.favorite && !(a_live & kLiveFavorite)) ||
+			       (a_rule.museum && !g_sources.museum) || (a_rule.questItem && !g_sources.questItem) ||
+			       (a_rule.enchantment && !g_sources.enchantment) || (a_rule.newItem && !g_sources.newItem) ||
+			       (a_rule.upgrade && !g_sources.upgrade);
 		};
 		std::uint8_t taken = 0;
 		bool capped = false;

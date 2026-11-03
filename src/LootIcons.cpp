@@ -2,6 +2,7 @@
 #include "IconRules.h"
 #include "TextureManager.h"
 
+#include <atomic>
 #include <mutex>
 
 namespace LootIcons
@@ -28,7 +29,7 @@ namespace LootIcons
 			std::chrono::steady_clock::time_point time;
 		};
 
-		bool                g_enabled = true;
+		std::atomic<bool>   g_enabled = true;
 		std::mutex          g_lock;
 		std::deque<Pending> g_pending;
 
@@ -44,7 +45,7 @@ namespace LootIcons
 			RE::BSEventNotifyControl ProcessEvent(const RE::TESContainerChangedEvent* a_event,
 				RE::BSTEventSource<RE::TESContainerChangedEvent>*) override
 			{
-				if (!a_event || a_event->newContainer != kPlayer || a_event->oldContainer == kPlayer ||
+				if (!g_enabled || !a_event || a_event->newContainer != kPlayer || a_event->oldContainer == kPlayer ||
 					a_event->itemCount <= 0 || !a_event->baseObj) {
 					return RE::BSEventNotifyControl::kContinue;
 				}
@@ -97,6 +98,10 @@ namespace LootIcons
 				return;
 			}
 			a_card.GetMember("pngii_lootHolder", &holder);
+			if (!g_enabled) {
+				Restore(a_card, icon, holder);
+				return;
+			}
 
 			const std::string_view name = a_argCount > 0 && a_args[0].IsString() ? a_args[0].GetString() : ""sv;
 			const std::string_view label = a_argCount > 2 && a_args[2].IsString() ? a_args[2].GetString() : ""sv;
@@ -261,14 +266,10 @@ namespace LootIcons
 
 	void Install()
 	{
-		if (!g_enabled) {
-			logger::info("loot icons: off (INI bRecentLootIcons=0)");
-			return;
-		}
 		static ContainerSink containerSink;
 		RE::ScriptEventSourceHolder::GetSingleton()->AddEventSink<RE::TESContainerChangedEvent>(&containerSink);
 		static MenuSink menuSink;
 		RE::UI::GetSingleton()->AddEventSink<RE::MenuOpenCloseEvent>(&menuSink);
-		logger::info("loot icons: sinks registered");
+		logger::info("loot icons: sinks registered ({})", g_enabled ? "on" : "off");
 	}
 }
