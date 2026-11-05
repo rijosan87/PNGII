@@ -1,4 +1,5 @@
 #include "IconRules.h"
+#include "IconAPI.h"
 #include "MMF/Interfaces.h"
 #include "TCCItemStatus.h"
 #include "TextureManager.h"
@@ -1534,7 +1535,11 @@ namespace IconRules
 				return false;
 			}
 			if (!a_rule.comapNames.empty()) {
-				if (a_query.isDoor || !g_coMAP || !a_query.ref) {
+				if (a_query.isDoor) {
+					return false;
+				}
+				// A name supplied by an API caller needs no CoMAP or ref.
+				if (!a_comapName && (!g_coMAP || !a_query.ref)) {
 					return false;
 				}
 				if (!a_comapName) {
@@ -1941,6 +1946,54 @@ namespace IconRules
 			return rule->undiscovered.empty() ? nullptr : &rule->undiscovered;
 		}
 		return &rule->path;
+	}
+
+	const std::string* FindMapMarkerIconUncached(const MapMarkerQuery& a_query, bool a_undiscovered)
+	{
+		// Pre-seeded name: MapPasses never reads the ref for it.
+		std::optional<std::string> comapName;
+		if (!a_query.comapName.empty()) {
+			comapName = Lower(a_query.comapName);
+		}
+		for (const auto& rule : g_mapRules) {
+			if (MapPasses(rule, a_query, comapName)) {
+				if (a_undiscovered) {
+					return rule.undiscovered.empty() ? nullptr : &rule.undiscovered;
+				}
+				return &rule.path;
+			}
+		}
+		return nullptr;
+	}
+
+	const IconAPI::MapProvider* MapMarkerProvider()
+	{
+		static const IconAPI::MapProvider provider{
+			[](const PNGII::API::MapMarkerQuery& a_query) -> const std::string* {
+				MapMarkerQuery query{};
+				query.form = a_query.formID;
+				query.ref = a_query.formID ? RE::TESForm::LookupByID<RE::TESObjectREFR>(a_query.formID) : nullptr;
+				// No ref: rules with plugin keys fail; form keys still compare the raw FormID (same as M1).
+				query.plugin = query.ref ? query.ref->GetFile(0) : nullptr;
+				query.location = a_query.locationFormID ? RE::TESForm::LookupByID<RE::BGSLocation>(a_query.locationFormID) : nullptr;
+				query.markerType = a_query.markerType;
+				query.isLocal = a_query.isLocal != 0;
+				query.isDoor = a_query.isDoor != 0;
+				query.comapName = a_query.comapIcon ? std::string_view(a_query.comapIcon) : std::string_view{};
+				return FindMapMarkerIconUncached(query, a_query.undiscovered != 0);
+			},
+			[]() { return static_cast<std::uint32_t>(g_mapRules.size()); },
+			// Pointers into g_mapRules: valid because Load sorts once and rules are never reloaded.
+			[](std::uint32_t a_index, PNGII::API::MapMarkerIconInfo& a_info) {
+				const auto& rule = g_mapRules[a_index];
+				a_info.path = rule.path.c_str();
+				a_info.undiscoveredPath = rule.undiscovered.c_str();
+				a_info.primaryComapIcon = rule.comapNames.empty() ? "" : rule.comapNames.front().c_str();
+				a_info.primaryMarkerType = rule.markerTypes.empty() ? std::uint16_t{ 0 } : rule.markerTypes.front();
+				a_info.map = rule.map;
+			}
+		};
+		return &provider;
 	}
 
 	bool HasMapMarkerRules()

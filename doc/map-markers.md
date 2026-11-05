@@ -51,6 +51,6 @@ Icons drawn by these rules can be tinted, one color for the world map and one fo
 
 ## Turn it off
 
-`PNGIconInjector.ini`: `[MapMarkers] bMapMarkerIcons = 0`.
+Other tab in SKSE Menu Framework, or `PNGIconInjector.ini`: `[MapMarkers] bWorldMap = 0` for the world map, `bLocalMap = 0` for the local map. `bMapMarkerIcons` is no longer read.
 
 Quest markers, the player arrow and the compass are never changed.

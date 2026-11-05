@@ -7,6 +7,11 @@ namespace MMF
 
 // Loads the JSON rule files in Data/SKSE/Plugins/PNGIconInjector and resolves icons for forms, labels and statuses.
 // Higher priority wins, then the later file/rule. Match keys and defaults are documented in docs/matching.md.
+namespace IconAPI
+{
+	struct MapProvider;
+}
+
 namespace IconRules
 {
 	// Room for the ingredient progress icon, up to kMaxEffectIcons effect icons and one more (new, upgrade). Children are created on demand.
@@ -135,9 +140,14 @@ namespace IconRules
 		bool isLocal;
 		bool isDoor;
 		RE::TESObjectREFR* ref;
+		std::string_view comapName{};  // API caller's CoMAP name; empty = lazy ref read
 	};
 	const std::string* FindMapMarkerIcon(const MapMarkerQuery& a_query, bool a_undiscovered);
 	bool HasMapMarkerRules();
+	// Uncached: the map cache ignores a supplied CoMAP name. UI thread only.
+	const std::string* FindMapMarkerIconUncached(const MapMarkerQuery& a_query, bool a_undiscovered);
+	// IconAPI::MapProvider over the loaded map rules; pass to IconAPI::SetMapProvider after Load.
+	const IconAPI::MapProvider* MapMarkerProvider();
 	bool UsesCoMAPNames();
 	void SetCoMAP(MMF::MapMarkerInterface* a_intfc);
 	bool HasCoMAP();

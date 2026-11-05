@@ -25,7 +25,7 @@ namespace MapMarkerIcons
 		constexpr double kInventoryStageHeight = 720.0;
 		constexpr std::uint32_t kLoggedCalls = 8;
 
-		std::atomic<bool> g_enabled = true;
+		std::array<std::atomic<bool>, 2> g_mapEnabled{ true, true };
 		std::array<std::atomic<std::uint32_t>, 2> g_tints{};
 		double g_stageHeight = kInventoryStageHeight;
 		bool g_warnedMismatch = false;
@@ -80,6 +80,10 @@ namespace MapMarkerIcons
 
 		void Resolve(RE::MapMenu& a_menu, bool a_local, std::uint32_t a_idx, std::uint32_t a_flashCount, RE::GFxValue& a_clip)
 		{
+			// One MapMenu movie holds both marker lists, so this is checked per map.
+			if (!g_mapEnabled[a_local ? 1 : 0]) {
+				return;
+			}
 			const auto* markers = Markers(a_menu, a_local);
 			// Engine count and clip count can differ; use the smaller.
 			if (!markers || a_idx >= (std::min)(markers->size(), a_flashCount)) {
@@ -385,7 +389,7 @@ namespace MapMarkerIcons
 			RE::BSEventNotifyControl ProcessEvent(const RE::MenuOpenCloseEvent* a_event,
 				RE::BSTEventSource<RE::MenuOpenCloseEvent>*) override
 			{
-				if (g_enabled && a_event && a_event->opening && a_event->menuName == RE::MapMenu::MENU_NAME) {
+				if ((g_mapEnabled[0] || g_mapEnabled[1]) && a_event && a_event->opening && a_event->menuName == RE::MapMenu::MENU_NAME) {
 					ScheduleInstall(120);
 				}
 				return RE::BSEventNotifyControl::kContinue;
@@ -393,9 +397,10 @@ namespace MapMarkerIcons
 		};
 	}
 
-	void SetEnabled(bool a_enabled)
+	void SetMapsEnabled(bool a_world, bool a_local)
 	{
-		g_enabled = a_enabled;
+		g_mapEnabled[0] = a_world;
+		g_mapEnabled[1] = a_local;
 	}
 
 	void SetTints(std::uint32_t a_world, std::uint32_t a_local)
@@ -416,6 +421,6 @@ namespace MapMarkerIcons
 		}
 		static MenuSink menuSink;
 		RE::UI::GetSingleton()->AddEventSink<RE::MenuOpenCloseEvent>(&menuSink);
-		logger::info("Map marker icons: sink registered ({})", g_enabled ? "on" : "off");
+		logger::info("Map marker icons: sink registered (world {}, local {})", g_mapEnabled[0].load() ? "on" : "off", g_mapEnabled[1].load() ? "on" : "off");
 	}
 }

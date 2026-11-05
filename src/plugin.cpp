@@ -41,6 +41,8 @@ namespace
 			// Label reads run behind the resolver gate, so KID keywords are in place by then.
 			IconLabels::Init();
 			IconAPI::SetLabeler(IconLabels::ForFormID);
+			// Map rules need no keyword pass.
+			IconAPI::SetMapProvider(IconRules::MapMarkerProvider());
 			RowIcons::Install();
 			CategoryIcons::Install();
 			LootIcons::Install();

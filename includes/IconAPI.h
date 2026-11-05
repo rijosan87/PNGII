@@ -1,5 +1,7 @@
 #pragma once
 
+#include "PNGII_API.h"
+
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -18,4 +20,15 @@ namespace IconAPI
 	// Derived SkyUI label: string literal or nullptr. V2 and the AS bridge only, never V1.
 	using Labeler = const char* (*)(std::uint32_t formID, std::int32_t soulStatus);
 	void SetLabeler(Labeler a_labeler) noexcept;
+
+	// nullptr = kNotReady.
+	struct MapProvider
+	{
+		// nullptr = no match.
+		const std::string* (*resolve)(const PNGII::API::MapMarkerQuery& a_query);
+		std::uint32_t (*count)();
+		// a_index < count(); fills every field except structSize.
+		void (*get)(std::uint32_t a_index, PNGII::API::MapMarkerIconInfo& a_info);
+	};
+	void SetMapProvider(const MapProvider* a_provider) noexcept;
 }

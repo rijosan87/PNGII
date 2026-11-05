@@ -11,6 +11,8 @@ namespace
 
 	std::atomic<IconAPI::Resolver> g_resolver{ nullptr };
 	std::atomic<IconAPI::Labeler> g_labeler{ nullptr };
+	// Map rules resolve forms and keywords at load, so this gate opens at kDataLoaded, not after the keyword pass.
+	std::atomic<const IconAPI::MapProvider*> g_mapProvider{ nullptr };
 
 	Result CopyOut(std::string_view a_text, char* a_out, std::uint32_t a_capacity, std::uint32_t* a_requiredSize)
 	{
@@ -112,12 +114,76 @@ namespace
 		}
 	}
 
+	Result ResolveMapMarkerIcon(const PNGII::API::MapMarkerQuery* a_query, char* a_path, std::uint32_t a_capacity,
+		std::uint32_t* a_requiredSize) noexcept
+	{
+		if (a_requiredSize) {
+			*a_requiredSize = 0;
+		}
+		if (a_path && a_capacity) {
+			a_path[0] = '\0';
+		}
+		if (!a_requiredSize || (!a_path && a_capacity) || !a_query ||
+			a_query->structSize < sizeof(PNGII::API::MapMarkerQuery)) {
+			return Result::kInvalidArgument;
+		}
+		const auto* provider = g_mapProvider.load(std::memory_order_acquire);
+		if (!provider) {
+			return Result::kNotReady;
+		}
+		try {
+			const auto* path = provider->resolve(*a_query);
+			if (!path || path->empty()) {
+				return Result::kNoMatch;
+			}
+			const auto result = CopyOut(*path, a_path, a_capacity, a_requiredSize);
+			if (result == Result::kError) {
+				*a_requiredSize = 0;
+			}
+			return result;
+		} catch (...) {
+			*a_requiredSize = 0;
+			return Result::kError;
+		}
+	}
+
+	Result GetMapMarkerIconCount(std::uint32_t* a_count) noexcept
+	{
+		if (!a_count) {
+			return Result::kInvalidArgument;
+		}
+		*a_count = 0;
+		const auto* provider = g_mapProvider.load(std::memory_order_acquire);
+		if (!provider) {
+			return Result::kNotReady;
+		}
+		*a_count = provider->count();
+		return Result::kSuccess;
+	}
+
+	Result GetMapMarkerIcon(std::uint32_t a_index, PNGII::API::MapMarkerIconInfo* a_info) noexcept
+	{
+		if (!a_info || a_info->structSize < sizeof(PNGII::API::MapMarkerIconInfo)) {
+			return Result::kInvalidArgument;
+		}
+		const auto* provider = g_mapProvider.load(std::memory_order_acquire);
+		if (!provider) {
+			return Result::kNotReady;
+		}
+		if (a_index >= provider->count()) {
+			return Result::kInvalidArgument;
+		}
+		provider->get(a_index, *a_info);
+		return Result::kSuccess;
+	}
+
 	const PNGII::API::InterfaceV1 g_interface{
 		PNGII::API::kVersion1, sizeof(PNGII::API::InterfaceV1), ResolveIcon
 	};
 
 	const PNGII::API::InterfaceV2 g_interfaceV2{
-		PNGII::API::kVersion2, sizeof(PNGII::API::InterfaceV2), ResolveIconV2, GetIconLabel
+		PNGII::API::kVersion2, sizeof(PNGII::API::InterfaceV2), ResolveIconV2, GetIconLabel,
+		ResolveMapMarkerIcon, GetMapMarkerIconCount, GetMapMarkerIcon
 	};
 }
 
@@ -134,6 +200,11 @@ IconAPI::Resolver IconAPI::GetResolver() noexcept
 void IconAPI::SetLabeler(Labeler a_labeler) noexcept
 {
 	g_labeler.store(a_labeler, std::memory_order_release);
+}
+
+void IconAPI::SetMapProvider(const MapProvider* a_provider) noexcept
+{
+	g_mapProvider.store(a_provider, std::memory_order_release);
 }
 
 #ifdef _WIN32

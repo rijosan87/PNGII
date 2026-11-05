@@ -245,7 +245,8 @@ namespace SettingsMenu
 			Header("Other.OtherMods");
 			Toggle("Other.TrueHUD", "TrueHUD", "bRecentLootIcons");
 			Toggle("Other.QuickLoot", "QuickLoot", "bLootMenuIcons");
-			Toggle("Other.MapMarkers", "MapMarkers", "bMapMarkerIcons");
+			Toggle("Other.WorldMap", "MapMarkers", "bWorldMap");
+			Toggle("Other.LocalMap", "MapMarkers", "bLocalMap");
 			Header("Other.Rendering");
 			Toggle("Other.SharpSVG", "Icons", "bSharpSVG");
 		}

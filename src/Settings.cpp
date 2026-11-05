@@ -51,7 +51,8 @@ namespace Settings
 				{ "Icons", "bSharpSVG", "1" },
 				{ "TrueHUD", "bRecentLootIcons", "1" },
 				{ "QuickLoot", "bLootMenuIcons", "1" },
-				{ "MapMarkers", "bMapMarkerIcons", "1" },
+				{ "MapMarkers", "bWorldMap", "1" },
+				{ "MapMarkers", "bLocalMap", "1" },
 				{ "Colors", "bUseCustomColors", "1" },
 				{ "Colors", "sNewItem", "FFFFFF" },
 				{ "Colors", "sBestInClass", "FFFFFF" },
@@ -219,10 +220,11 @@ namespace Settings
 
 			const bool lootIcons = readOn("TrueHUD", "bRecentLootIcons");
 			const bool quickLootIcons = readOn("QuickLoot", "bLootMenuIcons");
-			const bool mapMarkerIcons = readOn("MapMarkers", "bMapMarkerIcons");
+			const bool worldMapIcons = readOn("MapMarkers", "bWorldMap");
+			const bool localMapIcons = readOn("MapMarkers", "bLocalMap");
 			LootIcons::SetEnabled(lootIcons);
 			QuickLootIcons::SetEnabled(quickLootIcons);
-			MapMarkerIcons::SetEnabled(mapMarkerIcons);
+			MapMarkerIcons::SetMapsEnabled(worldMapIcons, localMapIcons);
 
 			// Registered textures keep their raster.
 			if (a_startup) {
@@ -234,9 +236,9 @@ namespace Settings
 				sources.museum, sources.questItem, sources.enchantment, sources.newItem, sources.upgrade);
 			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} mapWorld={:06X} mapLocal={:06X} (0 = art colors), item tints set={}", customColors,
 				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite, mapWorldTint, mapLocalTint, ItemTints::ActiveCount());
-			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} mapMarkerIcons={}",
+			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} worldMapIcons={} localMapIcons={}",
 				logMatches, logTiming, showProgress, showEffects, maxEffectIcons, harmTint,
-				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, mapMarkerIcons);
+				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, worldMapIcons, localMapIcons);
 		}
 	}
 
