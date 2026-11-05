@@ -9,6 +9,8 @@ namespace TextureManager
 	// Cached existence check for a path relative to Data. Does not validate PNG decoding.
 	bool Exists(const std::string& a_path);
 
+	bool ReadFile(const char* a_path, std::vector<std::uint8_t>& a_out);
+
 	// a_targetPx: on-screen size the icon is drawn at (0 = full size). One registration per
 	// path and uploaded level. nullptr when the PNG can't be loaded; callers keep the vanilla icon.
 	const std::string* GetURL(const std::string& a_path, std::uint32_t a_targetPx = 0);

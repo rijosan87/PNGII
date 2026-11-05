@@ -101,6 +101,7 @@ if (g_pngii && g_pngii->resolveIcon(form->GetFormID(), nullptr, -1, path, sizeof
 |---|---|
 | `resolveIcon(formID, iconLabel, soulStatus, path, capacity, &needed)` | Icon path. `iconLabel` `nullptr` unless you use your own label. |
 | `getIconLabel(formID, soulStatus, label, capacity, &needed)` | The SkyUI label for the form, e.g. `weapon_sword`. |
+| `readIconFile(path, buffer, capacity, &needed)` | Bytes of a returned icon path, loose or BSA. UI thread. |
 
 `soulStatus`: `-1` none, `0` empty, `1` partial, `2` full. `kBufferTooSmall` sets `needed`; retry with a bigger buffer.
 

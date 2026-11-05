@@ -14,6 +14,7 @@
 #include "NewItems.h"
 #include "StatusIcons.h"
 #include "TCCItemStatus.h"
+#include "TextureManager.h"
 
 namespace
 {
@@ -43,6 +44,7 @@ namespace
 			IconAPI::SetLabeler(IconLabels::ForFormID);
 			// Map rules need no keyword pass.
 			IconAPI::SetMapProvider(IconRules::MapMarkerProvider());
+			IconAPI::SetFileReader(TextureManager::ReadFile);
 			RowIcons::Install();
 			CategoryIcons::Install();
 			LootIcons::Install();

@@ -13,6 +13,7 @@ namespace
 	std::atomic<IconAPI::Labeler> g_labeler{ nullptr };
 	// Map rules resolve forms and keywords at load, so this gate opens at kDataLoaded, not after the keyword pass.
 	std::atomic<const IconAPI::MapProvider*> g_mapProvider{ nullptr };
+	std::atomic<IconAPI::FileReader> g_fileReader{ nullptr };
 
 	Result CopyOut(std::string_view a_text, char* a_out, std::uint32_t a_capacity, std::uint32_t* a_requiredSize)
 	{
@@ -177,13 +178,63 @@ namespace
 		return Result::kSuccess;
 	}
 
+	bool IsDataRelative(const char* a_path)
+	{
+		if (!a_path || !*a_path) {
+			return false;
+		}
+		const std::string_view path(a_path);
+		if (path.front() == '/' || path.front() == '\\' || path.find(':') != std::string_view::npos) {
+			return false;
+		}
+		std::size_t start = 0;
+		while (start <= path.size()) {
+			const auto end = path.find_first_of("/\\", start);
+			const auto stop = end == std::string_view::npos ? path.size() : end;
+			if (path.substr(start, stop - start) == "..") {
+				return false;
+			}
+			start = stop + 1;
+		}
+		return true;
+	}
+
+	Result ReadIconFile(const char* a_path, void* a_buffer, std::uint32_t a_capacity, std::uint32_t* a_requiredSize) noexcept
+	{
+		if (a_requiredSize) {
+			*a_requiredSize = 0;
+		}
+		if (!a_requiredSize || (!a_buffer && a_capacity) || !IsDataRelative(a_path)) {
+			return Result::kInvalidArgument;
+		}
+		const auto reader = g_fileReader.load(std::memory_order_acquire);
+		if (!reader) {
+			return Result::kNotReady;
+		}
+		try {
+			std::vector<std::uint8_t> bytes;
+			if (!reader(a_path, bytes) || bytes.empty()) {
+				return Result::kNoMatch;
+			}
+			*a_requiredSize = static_cast<std::uint32_t>(bytes.size());
+			if (a_capacity < bytes.size()) {
+				return Result::kBufferTooSmall;
+			}
+			std::memcpy(a_buffer, bytes.data(), bytes.size());
+			return Result::kSuccess;
+		} catch (...) {
+			*a_requiredSize = 0;
+			return Result::kError;
+		}
+	}
+
 	const PNGII::API::InterfaceV1 g_interface{
 		PNGII::API::kVersion1, sizeof(PNGII::API::InterfaceV1), ResolveIcon
 	};
 
 	const PNGII::API::InterfaceV2 g_interfaceV2{
 		PNGII::API::kVersion2, sizeof(PNGII::API::InterfaceV2), ResolveIconV2, GetIconLabel,
-		ResolveMapMarkerIcon, GetMapMarkerIconCount, GetMapMarkerIcon
+		ResolveMapMarkerIcon, GetMapMarkerIconCount, GetMapMarkerIcon, ReadIconFile
 	};
 }
 
@@ -205,6 +256,11 @@ void IconAPI::SetLabeler(Labeler a_labeler) noexcept
 void IconAPI::SetMapProvider(const MapProvider* a_provider) noexcept
 {
 	g_mapProvider.store(a_provider, std::memory_order_release);
+}
+
+void IconAPI::SetFileReader(FileReader a_reader) noexcept
+{
+	g_fileReader.store(a_reader, std::memory_order_release);
 }
 
 #ifdef _WIN32

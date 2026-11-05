@@ -81,6 +81,11 @@ namespace PNGII::API
 	// index in [0, count), best rule first. kInvalidArgument: index out of range, null info or structSize too small.
 	using GetMapMarkerIconFunction = Result (*)(std::uint32_t index, MapMarkerIconInfo* info) noexcept;
 
+	// Version 2 only. Bytes of a returned icon path, loose or BSA. UI thread, from kDataLoaded on.
+	// Buffer contract as ResolveIconFunction, exact bytes with no NUL. Do not add a "Data\" prefix.
+	using ReadIconFileFunction = Result (*)(const char* path, void* buffer, std::uint32_t capacity,
+		std::uint32_t* requiredSize) noexcept;
+
 	// Request kVersion2 and cast to const InterfaceV2*. Fields are only ever appended:
 	// check structSize covers a field before calling it.
 	struct InterfaceV2
@@ -93,6 +98,7 @@ namespace PNGII::API
 		ResolveMapMarkerIconFunction resolveMapMarkerIcon;
 		GetMapMarkerIconCountFunction getMapMarkerIconCount;
 		GetMapMarkerIconFunction getMapMarkerIcon;
+		ReadIconFileFunction readIconFile;
 	};
 
 	// The returned table remains valid while PNGIconInjector.dll is loaded.

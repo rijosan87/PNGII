@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace IconAPI
 {
@@ -31,4 +32,7 @@ namespace IconAPI
 		void (*get)(std::uint32_t a_index, PNGII::API::MapMarkerIconInfo& a_info);
 	};
 	void SetMapProvider(const MapProvider* a_provider) noexcept;
+
+	using FileReader = bool (*)(const char* a_path, std::vector<std::uint8_t>& a_out);
+	void SetFileReader(FileReader a_reader) noexcept;
 }

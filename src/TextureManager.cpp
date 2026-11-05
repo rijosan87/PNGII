@@ -276,6 +276,11 @@ namespace TextureManager
 		}
 	}
 
+	bool ReadFile(const char* a_path, std::vector<std::uint8_t>& a_out)
+	{
+		return ReadGameFile(a_path, a_out);
+	}
+
 	bool Exists(const std::string& a_path)
 	{
 		if (const auto it = g_exists.find(a_path); it != g_exists.end()) {
