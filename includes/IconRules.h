@@ -63,6 +63,8 @@ namespace IconRules
 	};
 
 	void SetDebug(bool a_matches, bool a_timing);
+	// INI [PartySheet] bPackIcons, restart only: Load skips 19_PartySheet-Packs.json while off.
+	void SetPartySheetPacks(bool a_enabled);
 	// INI [StatusIcons]. a_progress off skips knownEffects rules; a_maxEffects is clamped to kMaxEffectIcons and 0
 	// turns knownEffect icons off. a_harmTint (0xRRGGBB, 0 = none) tints effect icons of detrimental effects.
 	void SetIngredientIcons(bool a_progress, std::uint32_t a_maxEffects, std::uint32_t a_harmTint);
@@ -125,7 +127,7 @@ namespace IconRules
 	// Paths point into the rule store and stay valid for the session.
 	void FindStatusIcons(RE::FormID a_formID, std::int32_t a_soulStatus, std::int32_t a_museum, std::uint32_t a_live,
 		std::vector<StatusIconMatch>& a_out);
-	// Full path under Interface/PNGIconInjector/, or nullptr (keep vanilla).
+	// Full Data-relative path (under the file's iconRoot, default Interface/PNGIconInjector/), or nullptr (keep vanilla).
 	const std::string* Find(RE::FormID a_formID, std::string_view a_label, std::int32_t a_status);
 	const std::string* FindOrigin(RE::FormID a_formID, std::string_view a_label, std::int32_t a_status);
 	// categoryIcons: full path for a category label (case-insensitive), or nullptr. Built once at load.

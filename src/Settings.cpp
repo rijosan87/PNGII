@@ -51,6 +51,7 @@ namespace Settings
 				{ "Icons", "bSharpSVG", "1" },
 				{ "TrueHUD", "bRecentLootIcons", "1" },
 				{ "QuickLoot", "bLootMenuIcons", "1" },
+				{ "PartySheet", "bPackIcons", "0" },
 				{ "MapMarkers", "bWorldMap", "1" },
 				{ "MapMarkers", "bLocalMap", "1" },
 				{ "Colors", "bUseCustomColors", "1" },
@@ -226,9 +227,11 @@ namespace Settings
 			QuickLootIcons::SetEnabled(quickLootIcons);
 			MapMarkerIcons::SetMapsEnabled(worldMapIcons, localMapIcons);
 
-			// Registered textures keep their raster.
+			// Registered textures keep their raster; the pack rule file loads once at kDataLoaded.
+			const bool partySheetPacks = readOn("PartySheet", "bPackIcons");
 			if (a_startup) {
 				TextureManager::SetSharpSVG(readOn("Icons", "bSharpSVG"));
+				IconRules::SetPartySheetPacks(partySheetPacks);
 			}
 
 			logger::info("settings{}: menus off=[{}] itemTabs={} craftingTabs={} status={} museum={} quest={} enchantment={} new={} upgrade={}",
@@ -236,9 +239,9 @@ namespace Settings
 				sources.museum, sources.questItem, sources.enchantment, sources.newItem, sources.upgrade);
 			logger::info("colors: custom={} new={:06X} best={:06X} quest={:06X} favorite={:06X} mapWorld={:06X} mapLocal={:06X} (0 = art colors), item tints set={}", customColors,
 				colors.newItem, colors.bestInClass, colors.questItem, colors.favorite, mapWorldTint, mapLocalTint, ItemTints::ActiveCount());
-			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} worldMapIcons={} localMapIcons={}",
+			logger::info("debug: logMatches={} logTiming={}, ingredient progress={} effects={} iMaxEffectIcons={} harmTint={:06X} statusIconSize={} recentLootIcons={} quickLootIcons={} worldMapIcons={} localMapIcons={} partySheetPacks={}",
 				logMatches, logTiming, showProgress, showEffects, maxEffectIcons, harmTint,
-				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, worldMapIcons, localMapIcons);
+				std::clamp(statusSize, StatusIcons::kMinSize, StatusIcons::kMaxSize), lootIcons, quickLootIcons, worldMapIcons, localMapIcons, partySheetPacks);
 		}
 	}
 

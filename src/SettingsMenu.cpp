@@ -245,6 +245,8 @@ namespace SettingsMenu
 			Header("Other.OtherMods");
 			Toggle("Other.TrueHUD", "TrueHUD", "bRecentLootIcons");
 			Toggle("Other.QuickLoot", "QuickLoot", "bLootMenuIcons");
+			// Rules load once at kDataLoaded, so this one is read only at launch.
+			Toggle("Other.PartySheetPacks", "PartySheet", "bPackIcons");
 			Toggle("Other.WorldMap", "MapMarkers", "bWorldMap");
 			Toggle("Other.LocalMap", "MapMarkers", "bLocalMap");
 			Header("Other.Rendering");

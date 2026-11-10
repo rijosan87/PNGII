@@ -14,7 +14,7 @@ Data/
 ```
 
 Every .json file in the rules folder is loaded and combined, so give your pack its own file name.
-Icon paths are relative to Interface/PNGIconInjector/. 
+Icon paths are relative to Interface/PNGIconInjector/, or to the file's own iconRoot when it sets one. 
 Restart Skyrim after editing rules; there is no hot reload.
 
 ```json

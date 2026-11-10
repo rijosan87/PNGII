@@ -94,6 +94,7 @@ std::uint32_t needed = 0;
 if (g_pngii && g_pngii->resolveIcon(form->GetFormID(), nullptr, -1, path, sizeof(path), &needed) ==
                    PNGII::API::Result::kSuccess) {
     // path is relative to Data, e.g. "Interface/PNGIconInjector/base/weapon_sword.svg"
+    // a rule file with iconRoot can return a path outside Interface/PNGIconInjector/
 }
 ```
 

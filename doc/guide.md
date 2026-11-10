@@ -39,7 +39,8 @@ At 4K the drawn size will be roughly double and it happens automatically, so you
 | `"version": 1` | Required, always keep at 1. Otherwise file is skipped |
 | `rules` | Your list of match rules, between square `[` and `]` |
 | `match` | Item and icon mapping. See [Matching keys and values](matching.md) |
-| `icon` | PNG or SVG image on the left side of any item, place them relative to `Interface/PNGIconInjector/` |
+| `iconRoot` | Optional. Folder under `Data/Interface/` that every icon path in this file is relative to. Default `Interface/PNGIconInjector/` |
+| `icon` | PNG or SVG image on the left side of any item, relative to `iconRoot` (default `Interface/PNGIconInjector/`) |
 | `statusIcon` | PNG or SVG image used instead of `icon` for a status icon right side of item name. See [Status icons](status-icons.md) |
 
 A file with three rules:

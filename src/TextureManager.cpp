@@ -186,6 +186,25 @@ namespace TextureManager
 				source = &converted;
 			}
 
+			// Rows draw every image as 64x64, so center non-square PNGs on a transparent square.
+			DirectX::ScratchImage squared;
+			if (!svg) {
+				const auto& md = source->GetMetadata();
+				if (md.width != md.height) {
+					const auto side = (std::max)(md.width, md.height);
+					if (FAILED(squared.Initialize2D(DXGI_FORMAT_R8G8B8A8_UNORM, side, side, 1, 1))) {
+						return nullptr;
+					}
+					std::memset(squared.GetPixels(), 0, squared.GetPixelsSize());  // Initialize2D does not clear
+					const DirectX::Rect rect(0, 0, md.width, md.height);
+					if (FAILED(DirectX::CopyRectangle(*source->GetImage(0, 0, 0), rect, *squared.GetImage(0, 0, 0),
+							DirectX::TEX_FILTER_DEFAULT, (side - md.width) / 2, (side - md.height) / 2))) {
+						return nullptr;
+					}
+					source = &squared;
+				}
+			}
+
 			// Scaleform samples only mip 0, so build the mip chain on the CPU (2x linear steps) and upload the smallest level >= the drawn size. Downscale in premultiplied alpha so black RGB from transparent pixels does not fringe the edges.
 			const auto& srcMd = source->GetMetadata();
 			DirectX::ScratchImage premul;

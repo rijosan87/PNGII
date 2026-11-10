@@ -11,6 +11,8 @@ namespace IconRules
 		constexpr auto kRuleFolder = "Data/SKSE/Plugins/PNGIconInjector";
 		// PNGs are read as raw bytes via BSResourceNiBinaryStream, so any Data path works; only template.dds must stay under Textures\.
 		constexpr auto kIconRoot = "Interface/PNGIconInjector/"sv;
+		// Rule file generated from the Party Sheet icon packs (iconRoot Interface/PartySheet/Items/); gated by [PartySheet] bPackIcons.
+		constexpr auto kPartySheetPacksFile = "19_partysheet-packs.json"sv;
 		constexpr std::int32_t kFormTier = 100;
 		constexpr std::int32_t kTypeTier = 10;
 		constexpr std::int32_t kKeywordTier = 30;
@@ -162,6 +164,7 @@ namespace IconRules
 			bool logTiming = false;
 		};
 		Settings g_debug;
+		bool g_partySheetPacks = false;
 		std::uint32_t g_maxEffectIcons = kDefaultMaxEffectIcons;
 		bool g_showProgress = true;
 		std::uint32_t g_harmTint = 0;
@@ -589,7 +592,18 @@ namespace IconRules
 			       a_icon.find("..") == std::string::npos && (Lower(a_icon).ends_with(".png") || Lower(a_icon).ends_with(".svg"));
 		}
 
-		void LoadRule(const nlohmann::json& a_rule, const std::string& a_origin, Counts& a_counts)
+		// Per-file icon folder (top-level "iconRoot"). Same rules as ValidIcon plus the Data-relative interface/ prefix.
+		bool ValidRoot(std::string& a_root)
+		{
+			std::ranges::replace(a_root, '\\', '/');
+			if (!a_root.empty() && a_root.back() != '/') {
+				a_root.push_back('/');
+			}
+			return Lower(a_root).starts_with("interface/") && a_root.find("..") == std::string::npos &&
+			       a_root.find(':') == std::string::npos;
+		}
+
+		void LoadRule(const nlohmann::json& a_rule, const std::string& a_origin, const std::string& a_root, Counts& a_counts)
 		{
 			const auto skip = [&](std::string_view reason) {
 				logger::warn("{}: {}", a_origin, reason);
@@ -1076,7 +1090,7 @@ namespace IconRules
 				skip(std::format("bad {} path '{}'", outKey, icon));
 				return;
 			}
-			const auto fullPath = std::string(kIconRoot) + icon;
+			const auto fullPath = a_root + icon;
 			if (!TextureManager::Exists(fullPath)) {
 				skip(std::format("icon not found '{}' (rule skipped, lower rules apply)", fullPath));
 				return;
@@ -1260,7 +1274,7 @@ namespace IconRules
 			}
 		}
 
-		void LoadCategoryIcons(const nlohmann::json& a_map, const std::string& a_file)
+		void LoadCategoryIcons(const nlohmann::json& a_map, const std::string& a_file, const std::string& a_root)
 		{
 			if (!a_map.is_object()) {
 				logger::warn("{}: categoryIcons must be an object of label -> PNG path", a_file);
@@ -1272,7 +1286,7 @@ namespace IconRules
 					logger::warn("{}: categoryIcons '{}' skipped: bad PNG path", a_file, label);
 					continue;
 				}
-				auto fullPath = std::string(kIconRoot) + icon;
+				auto fullPath = a_root + icon;
 				if (!TextureManager::Exists(fullPath)) {
 					logger::warn("{}: categoryIcons '{}' skipped: icon not found '{}'", a_file, label, fullPath);
 					continue;
@@ -1281,7 +1295,7 @@ namespace IconRules
 			}
 		}
 
-		std::pair<std::size_t, std::size_t> LoadMapMarkers(const nlohmann::json& a_list, const std::string& a_file)
+		std::pair<std::size_t, std::size_t> LoadMapMarkers(const nlohmann::json& a_list, const std::string& a_file, const std::string& a_root)
 		{
 			if (!a_list.is_array()) {
 				logger::warn("{}: mapMarkers must be an array of rules", a_file);
@@ -1473,7 +1487,7 @@ namespace IconRules
 					skip(std::format("bad icon path '{}'", icon));
 					continue;
 				}
-				rule.path = std::string(kIconRoot) + icon;
+				rule.path = a_root + icon;
 				if (!TextureManager::Exists(rule.path)) {
 					skip(std::format("icon not found '{}' (rule skipped, lower rules apply)", rule.path));
 					continue;
@@ -1482,7 +1496,7 @@ namespace IconRules
 					auto variant = entry["iconUndiscovered"].is_string() ? entry["iconUndiscovered"].get<std::string>() : std::string{};
 					if (!ValidIcon(variant)) {
 						logger::warn("{}: bad iconUndiscovered path '{}', field dropped", origin, variant);
-					} else if (const auto fixed = std::string(kIconRoot) + variant; !TextureManager::Exists(fixed)) {
+					} else if (const auto fixed = a_root + variant; !TextureManager::Exists(fixed)) {
 						logger::warn("{}: iconUndiscovered not found '{}', field dropped", origin, fixed);
 					} else {
 						rule.undiscovered = fixed;
@@ -1573,17 +1587,27 @@ namespace IconRules
 				g_fileStats.push_back({ name, 0, 0, 0, true });
 				return;
 			}
+			std::string root(kIconRoot);
+			if (json.contains("iconRoot")) {
+				root = json["iconRoot"].is_string() ? json["iconRoot"].get<std::string>() : std::string{};
+				if (!ValidRoot(root)) {
+					logger::warn("{}: bad iconRoot '{}', file skipped", name, json["iconRoot"].dump());
+					++a_total.skipped;
+					g_fileStats.push_back({ name, 0, 0, 0, true });
+					return;
+				}
+			}
 			if (hasCategories) {
-				LoadCategoryIcons(json["categoryIcons"], name);
+				LoadCategoryIcons(json["categoryIcons"], name, root);
 			}
 			std::pair<std::size_t, std::size_t> map{};
 			if (hasMapMarkers) {
-				map = LoadMapMarkers(json["mapMarkers"], name);
+				map = LoadMapMarkers(json["mapMarkers"], name, root);
 			}
 			Counts counts;
 			std::size_t index = 0;
 			for (const auto& rule : json.value("rules", nlohmann::json::array())) {
-				LoadRule(rule, std::format("{}#{}", name, ++index), counts);
+				LoadRule(rule, std::format("{}#{}", name, ++index), root, counts);
 			}
 			logger::info("{}: {} rules, {} forms, {} skipped", name, counts.rules, counts.forms, counts.skipped);
 			g_fileStats.push_back({ name, counts.rules, counts.statusIconRules, counts.skipped, false, map.first, map.second });
@@ -1630,6 +1654,10 @@ namespace IconRules
 		});
 		Counts total;
 		for (const auto& file : files) {
+			if (!g_partySheetPacks && Lower(file.filename().string()) == kPartySheetPacksFile) {
+				logger::info("{}: skipped ([PartySheet] bPackIcons=0)", file.filename().string());
+				continue;
+			}
 			LoadFile(file, total);
 		}
 		for (auto& [type, rules] : g_byType) {
@@ -1704,6 +1732,11 @@ namespace IconRules
 	void SetDebug(bool a_matches, bool a_timing)
 	{
 		g_debug = Settings{ a_matches, a_timing };
+	}
+
+	void SetPartySheetPacks(bool a_enabled)
+	{
+		g_partySheetPacks = a_enabled;
 	}
 
 	void SetStatusSources(const StatusSources& a_sources)
